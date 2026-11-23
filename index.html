@@ -1,0 +1,2600 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Pedagógico SAEP/SENAI — Análise Diagnóstica</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    },
+                    colors: {
+                        senai: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#005caa',
+                            600: '#004b8d',
+                            700: '#003a6e',
+                            900: '#0f2942',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- SheetJS opcional como camada secundária para BIFF8 legado (não obrigatório; leitor OpenXML nativo embutido) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        /* Inputs de arquivo acessíveis sem display:none problemático em iframes */
+        .sr-file-input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        .drop-zone {
+            transition: all 0.2s ease-in-out;
+        }
+        .drop-zone.dragover {
+            border-color: #38bdf8 !important;
+            background-color: rgba(14, 165, 233, 0.18) !important;
+            transform: scale(1.005);
+        }
+        @media print {
+            body { background-color: #ffffff !important; font-size: 11px; }
+            .no-print { display: none !important; }
+            .tab-content { display: block !important; page-break-inside: avoid; margin-bottom: 24px; }
+            .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Barra Superior Institucional -->
+    <header class="bg-senai-900 text-white shadow-md sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2 rounded-xl border border-white/20">
+                    <svg class="w-6 h-6 text-sky-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M18 17V9M13 17V5M8 17v-3"/></svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold tracking-wider uppercase bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-md border border-sky-400/30">SAEP / SENAI</span>
+                        <h1 class="text-base sm:text-lg font-bold tracking-tight">Inteligência Pedagógica & Diagnóstica</h1>
+                    </div>
+                    <p class="text-xs text-slate-300 hidden sm:block">Análise psicométrica, temporal, de competências e integridade — 100% Nativo Offline/Online</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="openAndResetForNewClass()" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white px-3.5 py-2 rounded-xl shadow-sm transition cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    <span>Trocar Planilhas / Nova Turma</span>
+                </button>
+                <button type="button" onclick="loadDemoData()" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-xl border border-white/15 transition cursor-pointer" title="Restaurar dados de demonstração (Turma 998551 - Química)">
+                    <svg class="w-4 h-4 text-sky-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                    <span class="hidden md:inline">Exemplo (Química)</span>
+                </button>
+                <button type="button" onclick="window.print()" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl shadow-sm transition cursor-pointer" title="Imprimir ou Salvar em PDF">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/></svg>
+                    <span class="hidden sm:inline">Relatório PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Painel de Upload Dinâmico à Prova de Falhas -->
+    <section id="uploadPanel" class="bg-slate-900 text-white border-b border-slate-800 transition-all duration-300 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <h2 class="text-sm font-semibold text-slate-100">Importação Nativa de Planilhas SAEP (.xls / .xlsx / .csv)</h2>
+                    <span id="demoModeBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                        Modo Exemplo (Turma 998551) — Selecione as planilhas da sua turma abaixo
+                    </span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="resetToCleanState()" class="text-xs text-rose-300 hover:text-rose-200 underline cursor-pointer">
+                        Limpar dados atuais
+                    </button>
+                    <button type="button" onclick="toggleUploadPanel()" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer">
+                        <span>Ocultar painel</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Zona Unificada (Lote: seleciona os 2 arquivos de uma vez ou arrasta) -->
+            <label for="fileUnified" id="dropUnified" class="drop-zone mb-3 rounded-2xl border-2 border-dashed border-sky-500/60 bg-sky-950/35 hover:bg-sky-900/35 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer select-none">
+                <input type="file" id="fileUnified" accept="*/*" multiple class="sr-file-input" onchange="handleUnifiedFileSelect(event)">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-11 h-11 rounded-xl bg-sky-500/20 text-sky-300 flex items-center justify-center shrink-0 border border-sky-400/30">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-sky-300">Importação em Lote (Recomendado)</span>
+                            <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Leitor OpenXML/ZIP Nativo</span>
+                        </div>
+                        <p class="text-sm font-semibold text-white mt-0.5">Clique aqui para selecionar os 2 arquivos juntos (ou arraste e solte)</p>
+                        <p class="text-xs text-slate-400">Identificação automática de <em>Desempenho Individual</em> e <em>Desempenho por Competência</em>, mesclando na mesma turma.</p>
+                    </div>
+                </div>
+                <span class="text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl shrink-0 shadow-sm">Escolher Planilhas</span>
+            </label>
+
+            <!-- Cartões Individuais de Status & Substituição de Cada Planilha -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Planilha 1: Desempenho Individual -->
+                <label for="fileInd" id="dropInd" class="drop-zone relative rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/70 p-4 flex items-center justify-between gap-4 cursor-pointer hover:border-sky-500 select-none">
+                    <input type="file" id="fileInd" accept="*/*" class="sr-file-input" onchange="handleFileSelect(event, 'individual')">
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-11 h-11 rounded-xl bg-sky-500/20 text-sky-300 flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Planilha 1</span>
+                                <span id="badgeInd" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">Exemplo Ativo</span>
+                            </div>
+                            <p class="text-sm font-semibold text-white truncate mt-0.5" id="nameInd">Desempenho-individual.xls (Turma 998551)</p>
+                            <p class="text-xs text-slate-400 truncate">Clique para carregar ou substituir apenas Desempenho Individual</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-2 rounded-lg shrink-0">Substituir</span>
+                </label>
+
+                <!-- Planilha 2: Desempenho por Competência -->
+                <label for="fileComp" id="dropComp" class="drop-zone relative rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/70 p-4 flex items-center justify-between gap-4 cursor-pointer hover:border-sky-500 select-none">
+                    <input type="file" id="fileComp" accept="*/*" class="sr-file-input" onchange="handleFileSelect(event, 'competencia')">
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-11 h-11 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Planilha 2</span>
+                                <span id="badgeComp" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">Exemplo Ativo</span>
+                            </div>
+                            <p class="text-sm font-semibold text-white truncate mt-0.5" id="nameComp">Desempenho-por-competencia.xls (30 Questões)</p>
+                            <p class="text-xs text-slate-400 truncate">Clique para carregar ou substituir apenas Desempenho por Competência</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-100 px-3 py-2 rounded-lg shrink-0">Substituir</span>
+                </label>
+            </div>
+
+            <!-- Toast / Alerta de Status de Leitura -->
+            <div id="statusBanner" class="hidden mt-3 px-4 py-3 rounded-xl text-xs font-medium flex items-start justify-between gap-3"></div>
+        </div>
+    </section>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Cabeçalho Dinâmico de Metadados da Avaliação -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div>
+                    <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-senai-50 text-senai-600 border border-senai-100">
+                            <span id="metaEscola">UNIDADE INTEGRADA SESI SENAI RIO VERDE</span>
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            <span id="metaPeriodo">13/08/2025 a 13/08/2025</span>
+                        </span>
+                    </div>
+                    <h2 id="metaAvaliacao" class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                        2ª Diagnóstica - Técnico em Química - 2025/2
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span><strong class="text-slate-700">Curso:</strong> <span id="metaCurso">TÉCNICO EM QUÍMICA</span></span>
+                        <span>•</span>
+                        <span><strong class="text-slate-700">Turma:</strong> <span id="metaTurma">998551</span></span>
+                        <span>•</span>
+                        <span><strong class="text-slate-700">Turno:</strong> <span id="metaTurno">Noturno</span></span>
+                    </p>
+                </div>
+
+                <!-- Resumo Rápido de Participação -->
+                <div class="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200/70 shrink-0">
+                    <div class="text-center px-2">
+                        <span class="block text-xs font-medium text-slate-500">Respondentes</span>
+                        <span id="metaTotalAlunos" class="text-xl font-extrabold text-senai-600">13</span>
+                    </div>
+                    <div class="h-8 w-px bg-slate-200"></div>
+                    <div class="text-center px-2">
+                        <span class="block text-xs font-medium text-slate-500">Questões</span>
+                        <span id="metaTotalQuestoes" class="text-xl font-extrabold text-slate-800">30</span>
+                    </div>
+                    <div class="h-8 w-px bg-slate-200"></div>
+                    <div class="text-center px-2">
+                        <span class="block text-xs font-medium text-slate-500">Subfunções</span>
+                        <span id="metaTotalSubfuncoes" class="text-xl font-extrabold text-slate-800">4</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPIs Principais (5 Cards Executivos) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 pt-4">
+                <!-- KPI 1: Média Geral -->
+                <div class="bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Média da Turma</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded bg-senai-100 text-senai-600">Média</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="flex items-baseline gap-2">
+                            <span id="kpiMediaPct" class="text-2xl font-extrabold text-slate-900">46,9%</span>
+                            <span id="kpiMediaAcertos" class="text-xs font-semibold text-slate-500">(14,1 / 30)</span>
+                        </div>
+                        <p id="kpiMediaStatus" class="text-xs font-medium text-amber-600 mt-1">
+                            Faixa de Atenção (&lt; 60%)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- KPI 2: Mediana -->
+                <div class="bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Mediana (Centro)</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">P50</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="flex items-baseline gap-2">
+                            <span id="kpiMedianaPct" class="text-2xl font-extrabold text-indigo-950">50,0%</span>
+                            <span id="kpiMedianaAcertos" class="text-xs font-semibold text-slate-500">(15,0 acertos)</span>
+                        </div>
+                        <p id="kpiMedianaDiff" class="text-xs text-slate-500 mt-1">
+                            +3,1 p.p. acima da média
+                        </p>
+                    </div>
+                </div>
+
+                <!-- KPI 3: Meta SENAI & Dispersão -->
+                <div class="bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Meta SENAI (≥ 60%)</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">≥ 60%</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="flex items-baseline gap-2">
+                            <span id="kpiMetaSenaiPct" class="text-2xl font-extrabold text-slate-900">30,8%</span>
+                            <span id="kpiMetaSenaiCount" class="text-xs font-semibold text-slate-500">(4 de 13)</span>
+                        </div>
+                        <p id="kpiAmplitude" class="text-xs text-slate-600 mt-1">
+                            DP: ±16,4% • Amp: 3,3% a 70,0%
+                        </p>
+                    </div>
+                </div>
+
+                <!-- KPI 4: Tempo Médio & Mediano -->
+                <div class="bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tempo de Prova</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-700">Tempo</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="flex items-baseline gap-2">
+                            <span id="kpiTempoMediano" class="text-2xl font-extrabold text-slate-900">00:46:40</span>
+                            <span class="text-xs font-semibold text-slate-500">mediana</span>
+                        </div>
+                        <p id="kpiTempoDetalhes" class="text-xs text-slate-500 mt-1">
+                            Média: 00:44:25 (~89s / questão)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- KPI 5: Alerta de Engajamento / Atipicidade -->
+                <div class="bg-rose-50/70 rounded-xl p-4 border border-rose-200/80 flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-rose-700">Alerta Atipicidade</span>
+                        <span class="text-xs font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700">Risco</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="flex items-baseline gap-2">
+                            <span id="kpiAlertasCount" class="text-2xl font-extrabold text-rose-700">2 alunos</span>
+                            <span class="text-xs font-semibold text-rose-600">atípicos</span>
+                        </div>
+                        <p id="kpiAlertasResumo" class="text-xs text-rose-700/90 mt-1">
+                            Tempo muito baixo ou itens em branco
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navegação por Abas -->
+        <nav class="flex flex-wrap gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/80 no-print" role="tablist">
+            <button type="button" onclick="switchTab('visao-geral')" id="tab-visao-geral" class="tab-btn active flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer bg-senai-600 text-white shadow-sm">
+                <span>Visão Geral & Tempo</span>
+            </button>
+            <button type="button" onclick="switchTab('competencias')" id="tab-competencias" class="tab-btn flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100">
+                <span>Pontos Fortes & Fracos</span>
+            </button>
+            <button type="button" onclick="switchTab('itens')" id="tab-itens" class="tab-btn flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100">
+                <span>Análise de Itens (Questões)</span>
+            </button>
+            <button type="button" onclick="switchTab('alunos')" id="tab-alunos" class="tab-btn flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer text-slate-600 hover:bg-slate-100">
+                <span>Raio-X por Aluno</span>
+            </button>
+        </nav>
+
+        <!-- ===================================================================== -->
+        <!-- ABA 1: VISÃO GERAL, TEMPO & COMPORTAMENTO                             -->
+        <!-- ===================================================================== -->
+        <div id="content-visao-geral" class="tab-content space-y-6">
+            
+            <!-- Banner de Diagnóstico Automático da Turma -->
+            <div class="bg-gradient-to-r from-senai-900 to-senai-700 text-white rounded-2xl p-5 shadow-sm">
+                <div class="space-y-1.5 text-sm">
+                    <h3 class="font-bold text-base text-white">Síntese Executiva Automatizada para Coordenação Pedagógica</h3>
+                    <p id="executiveSummaryText" class="text-slate-200 leading-relaxed"></p>
+                </div>
+            </div>
+
+            <!-- Gráficos SVG Interativos: Dispersão Tempo x Nota & Ranking de Alunos -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Scatter Plot SVG Interativo -->
+                <div class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex flex-col">
+                    <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">Correlação: Tempo de Prova vs. Desempenho (%)</h3>
+                            <p class="text-xs text-slate-500">Passe o mouse sobre os pontos ou clique para abrir o Raio-X individual</p>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 text-[11px] font-medium">
+                            <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">● Alerta Rápido/Chute</span>
+                            <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">● Rápido + Alta</span>
+                            <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">● Alto Esforço</span>
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">● Regular/Bom</span>
+                        </div>
+                    </div>
+                    <div id="scatterSvgContainer" class="relative flex-1 min-h-[310px] w-full"></div>
+                </div>
+
+                <!-- Ranking Horizontal SVG -->
+                <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex flex-col">
+                    <div class="mb-3">
+                        <h3 class="text-base font-bold text-slate-900">Desempenho por Estudante vs. Mediana</h3>
+                        <p class="text-xs text-slate-500">Linha tracejada: mediana da turma (<span id="chartMedianaLabel">50,0%</span>)</p>
+                    </div>
+                    <div id="barAlunosSvgContainer" class="relative flex-1 min-h-[310px] w-full overflow-y-auto max-h-[380px]"></div>
+                </div>
+            </div>
+
+            <!-- Painel de Alertas Comportamentais e Integridade -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Monitoramento Comportamental, Tempo de Resposta e Integridade</h3>
+                        <p class="text-xs text-slate-500">Classificação dinâmica baseada na mediana da turma, média e questões em branco</p>
+                    </div>
+                    <span id="limiarVelocidadeBadge" class="text-xs font-medium bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+                        Limite rápido: &lt; 45% da mediana
+                    </span>
+                </div>
+
+                <div id="behavioralCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- ABA 2: PONTOS FORTES & PONTOS FRACOS (COMPETÊNCIAS E CONHECIMENTOS)   -->
+        <!-- ===================================================================== -->
+        <div id="content-competencias" class="tab-content hidden space-y-6">
+            
+            <!-- Cards Resumo: Destaques Positivos vs Pontos Críticos -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Pontos Fortes -->
+                <div class="bg-white rounded-2xl shadow-sm border border-emerald-200 p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-emerald-950">Pontos Fortes da Turma</h3>
+                            <p class="text-xs text-emerald-700">Competências e conteúdos consolidados (≥ 60% de acerto)</p>
+                        </div>
+                        <span id="countPontosFortes" class="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">0 itens</span>
+                    </div>
+                    <div id="listaPontosFortes" class="space-y-3"></div>
+                </div>
+
+                <!-- Pontos Fracos / Críticos -->
+                <div class="bg-white rounded-2xl shadow-sm border border-rose-200 p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-rose-950">Pontos Fracos & Críticos (Prioridade de Recomposição)</h3>
+                            <p class="text-xs text-rose-700">Conteúdos com defasagem severa (&lt; 50% de acerto)</p>
+                        </div>
+                        <span id="countPontosFracos" class="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800">0 itens</span>
+                    </div>
+                    <div id="listaPontosFracos" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Subfunções e Nível de Dificuldade -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+                    <h3 class="text-base font-bold text-slate-900 mb-1">Aproveitamento por Subfunção (Competência SAEP)</h3>
+                    <p class="text-xs text-slate-500 mb-4">Verde ≥ 70% • Âmbar 50%–69% • Coral &lt; 50%</p>
+                    <div id="subfuncoesBarsContainer" class="space-y-3.5"></div>
+                </div>
+
+                <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 mb-1">Desempenho por Nível de Dificuldade</h3>
+                        <p class="text-xs text-slate-500 mb-4">Detecta anomalias psicométricas (ex: questões fáceis com baixo acerto)</p>
+                        <div id="dificuldadeBarsContainer" class="space-y-3"></div>
+                    </div>
+                    <div id="alertaDificuldadeBox" class="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"></div>
+                </div>
+            </div>
+
+            <!-- Tabela Completa de Conhecimentos e Capacidades -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="p-5 border-b border-slate-100">
+                    <h3 class="text-base font-bold text-slate-900">Matriz Completa de Objetos de Conhecimento & Capacidades</h3>
+                    <p class="text-xs text-slate-500">Ordenada do menor para o maior aproveitamento para orientar o plano de recomposição</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                                <th class="py-3 px-4 font-semibold">Conhecimento / Capacidade</th>
+                                <th class="py-3 px-4 font-semibold">Subfunção</th>
+                                <th class="py-3 px-4 font-semibold text-center">Qtd. Itens</th>
+                                <th class="py-3 px-4 font-semibold">Aproveitamento</th>
+                                <th class="py-3 px-4 font-semibold">Diagnóstico Pedagógico</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaConhecimentosBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- ABA 3: ANÁLISE DE ITENS (QUESTÕES E DISTRATORES)                      -->
+        <!-- ===================================================================== -->
+        <div id="content-itens" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Diagnóstico Psicométrico por Item (Questões & Distratores)</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Destaca automaticamente <strong>Distratores Dominantes</strong> (alternativa incorreta mais marcada que o gabarito) e itens críticos.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="filterDificuldade" onchange="renderItensTable()" class="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-senai-500">
+                            <option value="ALL">Todas as Dificuldades</option>
+                            <option value="Muito Fácil">Muito Fácil</option>
+                            <option value="Fácil">Fácil</option>
+                            <option value="Médio">Médio</option>
+                            <option value="Difícil">Difícil</option>
+                            <option value="Muito Difícil">Muito Difícil</option>
+                        </select>
+                        <select id="filterStatusItem" onchange="renderItensTable()" class="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-senai-500">
+                            <option value="ALL">Todos os Status</option>
+                            <option value="CRITICO">Críticas (&lt; 40% acerto)</option>
+                            <option value="DISTRATOR">Com Distrator Atrativo</option>
+                            <option value="FACEIS_ERRADAS">Fáceis com Baixo Acerto (&lt; 60%)</option>
+                            <option value="FORTE">Consolidadas (≥ 60% acerto)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                                <th class="py-3 px-3 font-semibold">Item / ID SAEP</th>
+                                <th class="py-3 px-3 font-semibold">Conhecimento Avaliado</th>
+                                <th class="py-3 px-3 font-semibold">Dificuldade</th>
+                                <th class="py-3 px-3 font-semibold text-center">Gabarito</th>
+                                <th class="py-3 px-3 font-semibold text-center">% Acertos</th>
+                                <th class="py-3 px-3 font-semibold">Distribuição das Respostas (A - E / Branco)</th>
+                                <th class="py-3 px-3 font-semibold">Alerta Psicométrico</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaItensBody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- ABA 4: RAIO-X POR ALUNO (LISTA + MODAL INDIVIDUAL)                    -->
+        <!-- ===================================================================== -->
+        <div id="content-alunos" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Desempenho Individual e Perfil Comportamental</h3>
+                        <p class="text-xs text-slate-500">Clique nos cabeçalhos para ordenar ou clique em um estudante para abrir o <strong>Boletim Diagnóstico Individual</strong></p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="filterPerfilAluno" onchange="renderAlunosTable()" class="text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 focus:outline-none focus:border-senai-500">
+                            <option value="ALL">Todos os Perfis</option>
+                            <option value="ALERTAS">Todos os Alertas de Tempo</option>
+                            <option value="RAPIDO_BAIXO">Alerta Rapidez / Chute</option>
+                            <option value="RAPIDO_ALTO">Muito Rápido com Nota Alta</option>
+                            <option value="ESFORCO">Alto Esforço / Dificuldade</option>
+                            <option value="REGULAR">Ritmo Regular</option>
+                        </select>
+                        <input type="text" id="searchAluno" onkeyup="renderAlunosTable()" placeholder="Buscar nome ou matrícula..." class="px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-senai-500 w-full sm:w-64">
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200 select-none">
+                                <th onclick="setAlunoSort('nome')" class="py-3 px-4 font-semibold cursor-pointer hover:text-senai-600">Estudante / Matrícula ↕</th>
+                                <th onclick="setAlunoSort('acertos')" class="py-3 px-4 font-semibold text-center cursor-pointer hover:text-senai-600">Acertos ↕</th>
+                                <th onclick="setAlunoSort('pct')" class="py-3 px-4 font-semibold text-center cursor-pointer hover:text-senai-600">Nota (%) ↕</th>
+                                <th onclick="setAlunoSort('diffMediana')" class="py-3 px-4 font-semibold text-center cursor-pointer hover:text-senai-600">vs. Mediana ↕</th>
+                                <th onclick="setAlunoSort('tempoSeg')" class="py-3 px-4 font-semibold text-center cursor-pointer hover:text-senai-600">Tempo Prova ↕</th>
+                                <th onclick="setAlunoSort('emBranco')" class="py-3 px-4 font-semibold text-center cursor-pointer hover:text-senai-600">Em Branco ↕</th>
+                                <th onclick="setAlunoSort('perfil')" class="py-3 px-4 font-semibold cursor-pointer hover:text-senai-600">Perfil Comportamental ↕</th>
+                                <th class="py-3 px-4 font-semibold text-right no-print">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaAlunosBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Tooltip flutuante para o gráfico SVG -->
+    <div id="svgTooltip" class="fixed z-50 pointer-events-none hidden bg-slate-900 text-white text-xs rounded-xl px-3 py-2 shadow-xl border border-slate-700 max-w-xs"></div>
+
+    <!-- Modal de Raio-X Individual do Estudante -->
+    <div id="studentModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" onclick="if(event.target===this) closeStudentModal()">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="bg-senai-900 text-white px-6 py-4 flex items-center justify-between">
+                <div>
+                    <span class="text-xs uppercase tracking-wider text-sky-300 font-semibold">Raio-X Diagnóstico Individual</span>
+                    <h3 id="modalAlunoNome" class="text-lg sm:text-xl font-bold mt-0.5">Nome do Aluno</h3>
+                </div>
+                <button type="button" onclick="closeStudentModal()" class="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer">
+                    ✕
+                </button>
+            </div>
+
+            <div id="modalAlunoContent" class="p-6 overflow-y-auto space-y-6 text-sm"></div>
+
+            <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between">
+                <span class="text-xs text-slate-500">Use este diagnóstico para feedback formativo individualizado.</span>
+                <button type="button" onclick="closeStudentModal()" class="px-4 py-2 bg-senai-600 hover:bg-senai-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer">
+                    Fechar Raio-X
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rodapé -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <p>Sistema de Análise Diagnóstica SAEP / SENAI — Leitor OpenXML/ZIP Nativo Embutido (100% no navegador).</p>
+            <p>Suporta planilhas <strong>Desempenho Individual</strong> e <strong>Desempenho por Competência</strong> (.xls / .xlsx / .csv).</p>
+        </div>
+    </footer>
+
+    <!-- ========================================================================= -->
+    <!-- SCRIPT PRINCIPAL: LEITOR OPENXML NATIVO + PARSER SAEP + ANALYTICS + SVG   -->
+    <!-- ========================================================================= -->
+    <script>
+        // =========================================================================
+        // 1. LEITOR XLSX / OPENXML NATIVO EMBUTIDO (ZERO DEPENDÊNCIA DE CDN)
+        // Lê pacotes ZIP OpenXML (PK\x03\x04) mesmo quando salvos com extensão .xls
+        // =========================================================================
+        const NativeOpenXmlReader = {
+            isZip(uint8) {
+                return uint8 && uint8.length >= 4 &&
+                    uint8[0] === 0x50 && uint8[1] === 0x4B &&
+                    (uint8[2] === 0x03 || uint8[2] === 0x05 || uint8[2] === 0x07);
+            },
+
+            // Descompacta uma entrada deflate-raw usando DecompressionStream nativo do navegador
+            async inflateRaw(compressedBytes) {
+                if (typeof DecompressionStream === 'undefined') {
+                    throw new Error("Navegador sem suporte a DecompressionStream nativo.");
+                }
+                const ds = new DecompressionStream('deflate-raw');
+                const writer = ds.writable.getWriter();
+                writer.write(compressedBytes);
+                writer.close();
+                const response = new Response(ds.readable);
+                const ab = await response.arrayBuffer();
+                return new Uint8Array(ab);
+            },
+
+            // Extrai todos os arquivos internos de um pacote ZIP lendo o Central Directory (EOCD)
+            async unzipAll(arrayBuffer) {
+                const bytes = new Uint8Array(arrayBuffer);
+                const view = new DataView(arrayBuffer);
+                const decoder = new TextDecoder('utf-8');
+
+                // Localiza End of Central Directory Record (assinatura 0x06054b50)
+                let eocdOffset = -1;
+                const minSearch = Math.max(0, bytes.length - 65557);
+                for (let i = bytes.length - 22; i >= minSearch; i--) {
+                    if (view.getUint32(i, true) === 0x06054b50) {
+                        eocdOffset = i;
+                        break;
+                    }
+                }
+                if (eocdOffset === -1) {
+                    throw new Error("Assinatura EOCD do arquivo ZIP/OpenXML não encontrada.");
+                }
+
+                const totalEntries = view.getUint16(eocdOffset + 10, true);
+                const cdOffset = view.getUint32(eocdOffset + 16, true);
+
+                const entries = {};
+                let ptr = cdOffset;
+
+                for (let e = 0; e < totalEntries && ptr + 46 <= bytes.length; e++) {
+                    if (view.getUint32(ptr, true) !== 0x02014b50) break;
+
+                    const compression = view.getUint16(ptr + 10, true);
+                    const compressedSize = view.getUint32(ptr + 20, true);
+                    const fileNameLen = view.getUint16(ptr + 28, true);
+                    const extraLen = view.getUint16(ptr + 30, true);
+                    const commentLen = view.getUint16(ptr + 32, true);
+                    const localHeaderOffset = view.getUint32(ptr + 42, true);
+
+                    const fileName = decoder.decode(bytes.subarray(ptr + 46, ptr + 46 + fileNameLen));
+                    ptr += 46 + fileNameLen + extraLen + commentLen;
+
+                    if (fileName.endsWith('/')) continue;
+
+                    // Lê o Local File Header para encontrar o início exato dos dados comprimidos
+                    if (localHeaderOffset + 30 > bytes.length) continue;
+                    const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+                    const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+                    const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+                    const compSlice = bytes.subarray(dataStart, dataStart + compressedSize);
+
+                    let rawData;
+                    if (compression === 0) {
+                        rawData = compSlice;
+                    } else if (compression === 8) {
+                        rawData = await this.inflateRaw(compSlice);
+                    } else {
+                        continue;
+                    }
+
+                    entries[fileName.replace(/\\/g, '/')] = rawData;
+                }
+
+                return entries;
+            },
+
+            // Converte referência de coluna Excel ("A", "Z", "AA", "BC") em índice 0-based
+            colLettersToIndex(letters) {
+                let col = 0;
+                for (let i = 0; i < letters.length; i++) {
+                    col = col * 26 + (letters.charCodeAt(i) - 64);
+                }
+                return col - 1;
+            },
+
+            // Converte número serial de data/hora do Excel (ex: 0.038576 -> "00:55:33" ou data)
+            excelSerialToFormatted(serial, numFmtId, formatCode) {
+                const code = String(formatCode || '').toLowerCase();
+                const isTimeOnly = (numFmtId >= 18 && numFmtId <= 21) || (numFmtId >= 45 && numFmtId <= 47) ||
+                    (/[hms]/.test(code) && !/[dy]/.test(code)) ||
+                    (serial > 0 && serial < 1);
+
+                if (isTimeOnly) {
+                    const totalSeconds = Math.round((serial % 1) * 86400);
+                    const hrs = Math.floor(totalSeconds / 3600) + Math.floor(serial) * 24;
+                    const mins = Math.floor((totalSeconds % 3600) / 60);
+                    const secs = totalSeconds % 60;
+                    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }
+
+                const isDate = (numFmtId >= 14 && numFmtId <= 17) || numFmtId === 22 || /[dy]/.test(code);
+                if (isDate && serial > 20000 && serial < 70000) {
+                    const utcDays = Math.floor(serial - 25569);
+                    const d = new Date(utcDays * 86400 * 1000);
+                    if (!isNaN(d.getTime())) {
+                        const dd = String(d.getUTCDate()).padStart(2, '0');
+                        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                        const yyyy = d.getUTCFullYear();
+                        return `${dd}/${mm}/${yyyy}`;
+                    }
+                }
+                return null;
+            },
+
+            // Faz o parse completo de um arquivo XLSX/OpenXML em um objeto { SheetNames, Sheets }
+            async parseArrayBuffer(arrayBuffer) {
+                const entries = await this.unzipAll(arrayBuffer);
+                const decoder = new TextDecoder('utf-8');
+                const parser = new DOMParser();
+
+                const readXml = (path) => {
+                    const normalized = path.replace(/^\/+/, '');
+                    const key = Object.keys(entries).find(k => k.toLowerCase() === normalized.toLowerCase());
+                    if (!key) return null;
+                    return parser.parseFromString(decoder.decode(entries[key]), 'application/xml');
+                };
+
+                // 1) Shared Strings (xl/sharedStrings.xml)
+                const sharedStrings = [];
+                const ssDoc = readXml('xl/sharedStrings.xml');
+                if (ssDoc) {
+                    const siNodes = ssDoc.getElementsByTagName('si');
+                    for (let i = 0; i < siNodes.length; i++) {
+                        const tNodes = siNodes[i].getElementsByTagName('t');
+                        let fullText = '';
+                        for (let j = 0; j < tNodes.length; j++) {
+                            fullText += tNodes[j].textContent || '';
+                        }
+                        sharedStrings.push(fullText);
+                    }
+                }
+
+                // 2) Styles & Number Formats (xl/styles.xml)
+                const cellXfFmtIds = [];
+                const customNumFmts = {};
+                const stylesDoc = readXml('xl/styles.xml');
+                if (stylesDoc) {
+                    const numFmts = stylesDoc.getElementsByTagName('numFmt');
+                    for (let i = 0; i < numFmts.length; i++) {
+                        const id = parseInt(numFmts[i].getAttribute('numFmtId') || '0', 10);
+                        const code = numFmts[i].getAttribute('formatCode') || '';
+                        customNumFmts[id] = code;
+                    }
+                    const cellXfs = stylesDoc.getElementsByTagName('cellXfs')[0];
+                    if (cellXfs) {
+                        const xfs = cellXfs.getElementsByTagName('xf');
+                        for (let i = 0; i < xfs.length; i++) {
+                            cellXfFmtIds.push(parseInt(xfs[i].getAttribute('numFmtId') || '0', 10));
+                        }
+                    }
+                }
+
+                // 3) Workbook & Relationships (xl/workbook.xml + xl/_rels/workbook.xml.rels)
+                const wbDoc = readXml('xl/workbook.xml');
+                if (!wbDoc) throw new Error("Arquivo xl/workbook.xml ausente no pacote OpenXML.");
+
+                const relMap = {};
+                const relsDoc = readXml('xl/_rels/workbook.xml.rels');
+                if (relsDoc) {
+                    const rels = relsDoc.getElementsByTagName('Relationship');
+                    for (let i = 0; i < rels.length; i++) {
+                        const rId = rels[i].getAttribute('Id');
+                        let target = rels[i].getAttribute('Target') || '';
+                        if (!target.startsWith('xl/')) {
+                            target = 'xl/' + target.replace(/^\/+/, '');
+                        }
+                        relMap[rId] = target;
+                    }
+                }
+
+                const sheetNodes = wbDoc.getElementsByTagName('sheet');
+                const sheetNames = [];
+                const sheets = {};
+
+                for (let s = 0; s < sheetNodes.length; s++) {
+                    const sNode = sheetNodes[s];
+                    const name = sNode.getAttribute('name') || `Planilha_${s + 1}`;
+                    const rId = sNode.getAttribute('r:id') || sNode.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+                    const targetPath = relMap[rId] || `xl/worksheets/sheet${s + 1}.xml`;
+
+                    const wsDoc = readXml(targetPath);
+                    if (!wsDoc) continue;
+
+                    const rows = [];
+                    const rowNodes = wsDoc.getElementsByTagName('row');
+                    for (let r = 0; r < rowNodes.length; r++) {
+                        const rowNode = rowNodes[r];
+                        const rAttr = parseInt(rowNode.getAttribute('r') || String(r + 1), 10);
+                        const rowIdx = Math.max(0, rAttr - 1);
+                        if (!rows[rowIdx]) rows[rowIdx] = [];
+
+                        const cNodes = rowNode.getElementsByTagName('c');
+                        let fallbackCol = 0;
+
+                        for (let c = 0; c < cNodes.length; c++) {
+                            const cNode = cNodes[c];
+                            const ref = cNode.getAttribute('r') || '';
+                            const colMatch = ref.match(/^([A-Z]+)/i);
+                            const colIdx = colMatch ? this.colLettersToIndex(colMatch[1].toUpperCase()) : fallbackCol;
+                            fallbackCol = colIdx + 1;
+
+                            const cellType = cNode.getAttribute('t') || '';
+                            const styleIdx = parseInt(cNode.getAttribute('s') || '-1', 10);
+                            const numFmtId = styleIdx >= 0 ? (cellXfFmtIds[styleIdx] || 0) : 0;
+                            const fmtCode = customNumFmts[numFmtId] || '';
+
+                            let val = '';
+                            if (cellType === 'inlineStr') {
+                                const tNodes = cNode.getElementsByTagName('t');
+                                for (let t = 0; t < tNodes.length; t++) val += tNodes[t].textContent || '';
+                            } else {
+                                const vNode = cNode.getElementsByTagName('v')[0];
+                                const rawV = vNode ? (vNode.textContent || '') : '';
+                                if (cellType === 's') {
+                                    const ssIdx = parseInt(rawV, 10);
+                                    val = sharedStrings[ssIdx] !== undefined ? sharedStrings[ssIdx] : '';
+                                } else if (cellType === 'str' || cellType === 'e') {
+                                    val = rawV;
+                                } else if (cellType === 'b') {
+                                    val = rawV === '1' ? 'TRUE' : 'FALSE';
+                                } else if (rawV !== '') {
+                                    const num = Number(rawV);
+                                    if (Number.isFinite(num)) {
+                                        const formattedSerial = this.excelSerialToFormatted(num, numFmtId, fmtCode);
+                                        if (formattedSerial !== null) {
+                                            val = formattedSerial;
+                                        } else if (fmtCode.includes('%')) {
+                                            val = `${(num * 100).toFixed(2).replace('.', ',')}%`;
+                                        } else {
+                                            val = num;
+                                        }
+                                    } else {
+                                        val = rawV;
+                                    }
+                                }
+                            }
+
+                            rows[rowIdx][colIdx] = val;
+                        }
+                    }
+
+                    // Preenche lacunas de linhas vazias com arrays vazios
+                    for (let i = 0; i < rows.length; i++) {
+                        if (!rows[i]) rows[i] = [];
+                    }
+
+                    sheetNames.push(name);
+                    sheets[name] = rows;
+                }
+
+                if (sheetNames.length === 0) {
+                    throw new Error("Nenhuma aba pôde ser extraída do pacote OpenXML.");
+                }
+
+                return { SheetNames: sheetNames, Sheets: sheets, isNative: true };
+            }
+        };
+
+        // Leitor Universal: tenta primeiro o motor OpenXML nativo (zero CDN), depois HTML/CSV, depois SheetJS opcional
+        async function readWorkbookUniversal(arrayBuffer) {
+            const bytes = new Uint8Array(arrayBuffer);
+
+            // 1) Se for pacote ZIP/OpenXML (padrão .xlsx e .xls exportados pelo SAEP/SENAI)
+            if (NativeOpenXmlReader.isZip(bytes)) {
+                try {
+                    return await NativeOpenXmlReader.parseArrayBuffer(arrayBuffer);
+                } catch (nativeErr) {
+                    console.warn("Fallback para SheetJS após aviso no leitor nativo:", nativeErr);
+                }
+            }
+
+            // 2) Se SheetJS estiver disponível na página (para BIFF8 binário antigo .xls)
+            if (typeof XLSX !== 'undefined') {
+                try {
+                    const wb = XLSX.read(bytes, { type: 'array', cellDates: true, raw: false });
+                    if (wb && Array.isArray(wb.SheetNames) && wb.SheetNames.length > 0) {
+                        const sheets = {};
+                        wb.SheetNames.forEach(name => {
+                            sheets[name] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+                        });
+                        const hasData = Object.values(sheets).some(rows => rows.some(r => r.some(c => String(c ?? '').trim() !== '')));
+                        if (hasData) return { SheetNames: wb.SheetNames, Sheets: sheets, isNative: false };
+                    }
+                } catch (_) {}
+            }
+
+            // 3) Fallback nativo para HTML Table ou CSV/TSV disfarçado de .xls
+            const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes).trim();
+            if (/<(table|html|!doctype|tr|td|th)\b/i.test(text)) {
+                const doc = new DOMParser().parseFromString(text, 'text/html');
+                const tables = doc.querySelectorAll('table');
+                if (tables.length > 0) {
+                    const sheetNames = [];
+                    const sheets = {};
+                    tables.forEach((tbl, idx) => {
+                        const name = `Tabela_${idx + 1}`;
+                        const rows = [];
+                        tbl.querySelectorAll('tr').forEach(tr => {
+                            const row = [];
+                            tr.querySelectorAll('th, td').forEach(cell => row.push(cell.textContent.trim()));
+                            rows.push(row);
+                        });
+                        sheetNames.push(name);
+                        sheets[name] = rows;
+                    });
+                    return { SheetNames: sheetNames, Sheets: sheets, isNative: true };
+                }
+            }
+
+            if (text.includes(';') || text.includes('\t') || text.includes(',')) {
+                const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+                const sep = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
+                const rows = lines.map(line => line.split(sep).map(c => c.replace(/^"|"$/g, '').trim()));
+                return { SheetNames: ['Planilha1'], Sheets: { Planilha1: rows }, isNative: true };
+            }
+
+            throw new Error("Formato de arquivo não reconhecido. Envie arquivos .xls, .xlsx ou .csv exportados pelo SAEP/SENAI.");
+        }
+
+        // =========================================================================
+        // 2. DADOS DE DEMONSTRAÇÃO (TURMA 998551 - TÉCNICO EM QUÍMICA)
+        // =========================================================================
+        const DEMO_DATA = {
+            meta: {
+                escola: "UNIDADE INTEGRADA SESI SENAI RIO VERDE",
+                curso: "TÉCNICO EM QUÍMICA",
+                turma: "998551",
+                turno: "Noturno",
+                avaliacao: "2ª Diagnóstica - Técnico em Química - 2025/2",
+                periodo: "13/08/2025 a 13/08/2025",
+                totalQuestoes: 30
+            },
+            itens: [
+                { num: 1, id: "SAEP_84718", subfuncao: "Subfunção 1.1", conhecimento: "Métodos de separação de misturas", dificuldade: "Fácil", gabarito: "C", acertosPct: 69.23, errosPct: 30.77, brancoPct: 0, dist: { A: 7.69, B: 23.08, C: 69.23, D: 0, E: 0, Branco: 0 } },
+                { num: 2, id: "SAEP_84716", subfuncao: "Subfunção 1.1", conhecimento: "Preparo de soluções e diluições", dificuldade: "Médio", gabarito: "D", acertosPct: 38.46, errosPct: 61.54, brancoPct: 0, dist: { A: 23.08, B: 15.38, C: 15.38, D: 38.46, E: 7.69, Branco: 0 } },
+                { num: 3, id: "SAEP_84723", subfuncao: "Subfunção 1.2", conhecimento: "Segurança em laboratório e FISPQ / GHS", dificuldade: "Muito Fácil", gabarito: "A", acertosPct: 84.62, errosPct: 15.38, brancoPct: 0, dist: { A: 84.62, B: 7.69, C: 7.69, D: 0, E: 0, Branco: 0 } },
+                { num: 4, id: "SAEP_84725", subfuncao: "Subfunção 1.2", conhecimento: "Vidrarias e equipamentos volumétricos", dificuldade: "Fácil", gabarito: "B", acertosPct: 76.92, errosPct: 23.08, brancoPct: 0, dist: { A: 7.69, B: 76.92, C: 7.69, D: 7.69, E: 0, Branco: 0 } },
+                { num: 5, id: "SAEP_84730", subfuncao: "Subfunção 1.3", conhecimento: "Estequiometria e rendimento de reações", dificuldade: "Difícil", gabarito: "E", acertosPct: 23.08, errosPct: 76.92, brancoPct: 0, dist: { A: 15.38, B: 30.77, C: 23.08, D: 7.69, E: 23.08, Branco: 0 } },
+                { num: 6, id: "SAEP_82384", subfuncao: "Subfunção 2.1", conhecimento: "Equilíbrio químico e constante Kc/Kp", dificuldade: "Médio", gabarito: "C", acertosPct: 0.00, errosPct: 100.00, brancoPct: 0, dist: { A: 38.46, B: 30.77, C: 0.00, D: 23.08, E: 7.69, Branco: 0 } },
+                { num: 7, id: "SAEP_84735", subfuncao: "Subfunção 1.1", conhecimento: "Propriedades físico-químicas da matéria", dificuldade: "Fácil", gabarito: "A", acertosPct: 61.54, errosPct: 38.46, brancoPct: 0, dist: { A: 61.54, B: 15.38, C: 7.69, D: 15.38, E: 0, Branco: 0 } },
+                { num: 8, id: "SAEP_84740", subfuncao: "Subfunção 2.1", conhecimento: "Volumetria de neutralização (Ácido-Base)", dificuldade: "Médio", gabarito: "D", acertosPct: 46.15, errosPct: 53.85, brancoPct: 0, dist: { A: 15.38, B: 23.08, C: 15.38, D: 46.15, E: 0, Branco: 0 } },
+                { num: 9, id: "SAEP_84742", subfuncao: "Subfunção 1.2", conhecimento: "Boas Práticas de Laboratório (BPL)", dificuldade: "Muito Fácil", gabarito: "B", acertosPct: 84.62, errosPct: 15.38, brancoPct: 0, dist: { A: 0, B: 84.62, C: 7.69, D: 7.69, E: 0, Branco: 0 } },
+                { num: 10, id: "SAEP_84852", subfuncao: "Subfunção 2.2", conhecimento: "Análise instrumental: Espectrofotometria UV-Vis", dificuldade: "Fácil", gabarito: "E", acertosPct: 7.69, errosPct: 92.31, brancoPct: 0, dist: { A: 46.15, B: 23.08, C: 15.38, D: 7.69, E: 7.69, Branco: 0 } },
+                { num: 11, id: "SAEP_84750", subfuncao: "Subfunção 1.3", conhecimento: "Unidades de concentração (Molaridade, ppm, %m/v)", dificuldade: "Médio", gabarito: "C", acertosPct: 53.85, errosPct: 46.15, brancoPct: 0, dist: { A: 15.38, B: 15.38, C: 53.85, D: 7.69, E: 7.69, Branco: 0 } },
+                { num: 12, id: "SAEP_84755", subfuncao: "Subfunção 2.1", conhecimento: "pH, pOH e soluções tampão", dificuldade: "Médio", gabarito: "A", acertosPct: 46.15, errosPct: 53.85, brancoPct: 0, dist: { A: 46.15, B: 30.77, C: 7.69, D: 15.38, E: 0, Branco: 0 } },
+                { num: 13, id: "SAEP_84861", subfuncao: "Subfunção 2.2", conhecimento: "Cromatografia líquida e gasosa", dificuldade: "Médio", gabarito: "B", acertosPct: 15.38, errosPct: 84.62, brancoPct: 0, dist: { A: 38.46, B: 15.38, C: 23.08, D: 15.38, E: 7.69, Branco: 0 } },
+                { num: 14, id: "SAEP_84760", subfuncao: "Subfunção 1.2", conhecimento: "Descarte e tratamento de resíduos químicos", dificuldade: "Fácil", gabarito: "D", acertosPct: 76.92, errosPct: 23.08, brancoPct: 0, dist: { A: 7.69, B: 7.69, C: 7.69, D: 76.92, E: 0, Branco: 0 } },
+                { num: 15, id: "SAEP_84765", subfuncao: "Subfunção 1.1", conhecimento: "Ligações químicas e interações intermoleculares", dificuldade: "Fácil", gabarito: "C", acertosPct: 61.54, errosPct: 38.46, brancoPct: 0, dist: { A: 15.38, B: 7.69, C: 61.54, D: 15.38, E: 0, Branco: 0 } },
+                { num: 16, id: "SAEP_84770", subfuncao: "Subfunção 2.1", conhecimento: "Gravimetria e reações de precipitação", dificuldade: "Difícil", gabarito: "E", acertosPct: 30.77, errosPct: 69.23, brancoPct: 0, dist: { A: 15.38, B: 23.08, C: 23.08, D: 7.69, E: 30.77, Branco: 0 } },
+                { num: 17, id: "SAEP_84775", subfuncao: "Subfunção 1.3", conhecimento: "Estequiometria e rendimento de reações", dificuldade: "Médio", gabarito: "B", acertosPct: 38.46, errosPct: 61.54, brancoPct: 0, dist: { A: 23.08, B: 38.46, C: 15.38, D: 15.38, E: 7.69, Branco: 0 } },
+                { num: 18, id: "SAEP_84780", subfuncao: "Subfunção 2.2", conhecimento: "Potenciometria e calibração de pHmetro", dificuldade: "Fácil", gabarito: "A", acertosPct: 53.85, errosPct: 46.15, brancoPct: 0, dist: { A: 53.85, B: 15.38, C: 15.38, D: 15.38, E: 0, Branco: 0 } },
+                { num: 19, id: "SAEP_84785", subfuncao: "Subfunção 1.2", conhecimento: "Equipamentos de Proteção Individual e Coletiva (EPI/EPC)", dificuldade: "Muito Fácil", gabarito: "D", acertosPct: 92.31, errosPct: 7.69, brancoPct: 0, dist: { A: 0, B: 7.69, C: 0, D: 92.31, E: 0, Branco: 0 } },
+                { num: 20, id: "SAEP_84790", subfuncao: "Subfunção 2.1", conhecimento: "Volumetria de oxirredução (Permanganometria)", dificuldade: "Difícil", gabarito: "C", acertosPct: 23.08, errosPct: 69.23, brancoPct: 7.69, dist: { A: 23.08, B: 30.77, C: 23.08, D: 15.38, E: 0, Branco: 7.69 } },
+                { num: 21, id: "SAEP_84795", subfuncao: "Subfunção 1.1", conhecimento: "Funções inorgânicas (Ácidos, Bases, Sais e Óxidos)", dificuldade: "Fácil", gabarito: "B", acertosPct: 69.23, errosPct: 23.08, brancoPct: 7.69, dist: { A: 7.69, B: 69.23, C: 7.69, D: 7.69, E: 0, Branco: 7.69 } },
+                { num: 22, id: "SAEP_84800", subfuncao: "Subfunção 2.2", conhecimento: "Análise instrumental: Espectrofotometria UV-Vis", dificuldade: "Médio", gabarito: "A", acertosPct: 30.77, errosPct: 61.54, brancoPct: 7.69, dist: { A: 30.77, B: 30.77, C: 15.38, D: 15.38, E: 0, Branco: 7.69 } },
+                { num: 23, id: "SAEP_84805", subfuncao: "Subfunção 1.3", conhecimento: "Preparo de soluções e diluições", dificuldade: "Médio", gabarito: "E", acertosPct: 46.15, errosPct: 46.15, brancoPct: 7.69, dist: { A: 15.38, B: 15.38, C: 7.69, D: 7.69, E: 46.15, Branco: 7.69 } },
+                { num: 24, id: "SAEP_84810", subfuncao: "Subfunção 1.2", conhecimento: "Controle de qualidade e rastreabilidade analítica", dificuldade: "Fácil", gabarito: "D", acertosPct: 61.54, errosPct: 30.77, brancoPct: 7.69, dist: { A: 7.69, B: 15.38, C: 7.69, D: 61.54, E: 0, Branco: 7.69 } },
+                { num: 25, id: "SAEP_84815", subfuncao: "Subfunção 2.1", conhecimento: "Equilíbrio químico e constante Kc/Kp", dificuldade: "Difícil", gabarito: "B", acertosPct: 15.38, errosPct: 76.92, brancoPct: 7.69, dist: { A: 23.08, B: 15.38, C: 30.77, D: 15.38, E: 7.69, Branco: 7.69 } },
+                { num: 26, id: "SAEP_84820", subfuncao: "Subfunção 1.3", conhecimento: "Unidades de concentração (Molaridade, ppm, %m/v)", dificuldade: "Fácil", gabarito: "C", acertosPct: 61.54, errosPct: 30.77, brancoPct: 7.69, dist: { A: 7.69, B: 15.38, C: 61.54, D: 7.69, E: 0, Branco: 7.69 } },
+                { num: 27, id: "SAEP_84825", subfuncao: "Subfunção 2.2", conhecimento: "Cromatografia líquida e gasosa", dificuldade: "Difícil", gabarito: "A", acertosPct: 23.08, errosPct: 69.23, brancoPct: 7.69, dist: { A: 23.08, B: 23.08, C: 30.77, D: 15.38, E: 0, Branco: 7.69 } },
+                { num: 28, id: "SAEP_84830", subfuncao: "Subfunção 1.1", conhecimento: "Métodos de separação de misturas", dificuldade: "Muito Fácil", gabarito: "D", acertosPct: 76.92, errosPct: 15.38, brancoPct: 7.69, dist: { A: 7.69, B: 0, C: 7.69, D: 76.92, E: 0, Branco: 7.69 } },
+                { num: 29, id: "SAEP_84835", subfuncao: "Subfunção 2.1", conhecimento: "Volumetria de neutralização (Ácido-Base)", dificuldade: "Médio", gabarito: "B", acertosPct: 38.46, errosPct: 53.85, brancoPct: 7.69, dist: { A: 15.38, B: 38.46, C: 23.08, D: 15.38, E: 0, Branco: 7.69 } },
+                { num: 30, id: "SAEP_84840", subfuncao: "Subfunção 1.2", conhecimento: "Segurança em laboratório e FISPQ / GHS", dificuldade: "Fácil", gabarito: "E", acertosPct: 69.23, errosPct: 23.08, brancoPct: 7.69, dist: { A: 7.69, B: 7.69, C: 7.69, D: 0, E: 69.23, Branco: 7.69 } }
+            ],
+            alunos: [
+                { nome: "ANA CLARA SILVA MENDES", matricula: "20250101", acertos: 21, total: 30, tempoStr: "00:54:12", emBranco: 0 },
+                { nome: "GABRIEL HENRIQUE COSTA ALVES", matricula: "20250102", acertos: 19, total: 30, tempoStr: "00:49:35", emBranco: 0 },
+                { nome: "MARIANA OLIVEIRA SANTOS", matricula: "20250103", acertos: 18, total: 30, tempoStr: "00:51:10", emBranco: 0 },
+                { nome: "LUCAS EDUARDO PEREIRA", matricula: "20250104", acertos: 17, total: 30, tempoStr: "00:47:20", emBranco: 0 },
+                { nome: "CAMILA RODRIGUES LIMA", matricula: "20250105", acertos: 16, total: 30, tempoStr: "00:58:44", emBranco: 0 },
+                { nome: "JOÃO PEDRO SOUZA MARTINS", matricula: "20250106", acertos: 15, total: 30, tempoStr: "00:46:40", emBranco: 0 },
+                { nome: "BEATRIZ FERREIRA GOMES", matricula: "20250107", acertos: 15, total: 30, tempoStr: "00:43:15", emBranco: 0 },
+                { nome: "RAFAEL AUGUSTO DIAS", matricula: "20250108", acertos: 14, total: 30, tempoStr: "01:02:18", emBranco: 0 },
+                { nome: "LARISSA MORAES CARVALHO", matricula: "20250109", acertos: 13, total: 30, tempoStr: "00:55:04", emBranco: 0 },
+                { nome: "PEDRO HENRIQUE NUNES", matricula: "20250110", acertos: 12, total: 30, tempoStr: "00:48:50", emBranco: 0 },
+                { nome: "JULIANA BARBOSA ROCHA", matricula: "20250111", acertos: 11, total: 30, tempoStr: "01:05:30", emBranco: 0 },
+                { nome: "NATHAN FERREIRA CERIBELI", matricula: "20250112", acertos: 7, total: 30, tempoStr: "00:03:11", emBranco: 0 },
+                { nome: "THAYNA ALMEIDA SOUSA MUNIZ", matricula: "20250113", acertos: 1, total: 30, tempoStr: "00:09:18", emBranco: 11 }
+            ]
+        };
+
+        function hydrateDemoStudentAnswers(data) {
+            data.alunos.forEach(aluno => {
+                if (aluno.respostas) return;
+                const rankedItems = [...data.itens].sort((a, b) => b.acertosPct - a.acertosPct);
+                const acertosSet = new Set(rankedItems.slice(0, aluno.acertos).map(i => i.num));
+                const brancoSet = new Set();
+                if (aluno.emBranco > 0) {
+                    for (let q = data.itens.length; q > data.itens.length - aluno.emBranco; q--) {
+                        if (!acertosSet.has(q)) brancoSet.add(q);
+                    }
+                }
+                const letras = ['A', 'B', 'C', 'D', 'E'];
+                aluno.respostas = data.itens.map(item => {
+                    if (acertosSet.has(item.num)) return { num: item.num, marcada: item.gabarito, status: 'ACERTO' };
+                    if (brancoSet.has(item.num)) return { num: item.num, marcada: '-', status: 'BRANCO' };
+                    let piorLetra = 'A', maxDist = -1;
+                    letras.forEach(l => {
+                        if (l !== item.gabarito && (item.dist[l] || 0) > maxDist) {
+                            maxDist = item.dist[l] || 0;
+                            piorLetra = l;
+                        }
+                    });
+                    return { num: item.num, marcada: piorLetra, status: 'ERRO' };
+                });
+            });
+        }
+
+        let appState = {
+            isDemo: true,
+            hasIndividualFile: false,
+            hasCompetenciaFile: false,
+            meta: JSON.parse(JSON.stringify(DEMO_DATA.meta)),
+            itens: JSON.parse(JSON.stringify(DEMO_DATA.itens)),
+            subfuncoesCruzamento: [],
+            alunos: JSON.parse(JSON.stringify(DEMO_DATA.alunos)),
+            alunoSort: { col: 'pct', dir: 'desc' },
+            stats: {}
+        };
+
+        // =========================================================================
+        // 3. UTILITÁRIOS DE NORMALIZAÇÃO, TEMPO, NÚMEROS E ESTATÍSTICA
+        // =========================================================================
+        function normalizeText(str) {
+            return String(str ?? '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatPct(val) {
+            const num = Number(val);
+            return Number.isFinite(num) ? `${num.toFixed(1).replace('.', ',')}%` : '0,0%';
+        }
+
+        function parseFlexPct(val, isPercentage = true) {
+            if (val === null || val === undefined || val === '') return 0;
+            if (typeof val === 'number') {
+                if (!Number.isFinite(val)) return 0;
+                if (isPercentage && val > 0 && val <= 1) return val * 100;
+                return val;
+            }
+            const str = String(val).trim().replace('%', '').replace(/\s+/g, '');
+            if (!str || str === '-' || str === '—') return 0;
+            // Trata formato brasileiro 1.234,56 ou 46,92
+            let clean = str;
+            if (clean.includes(',') && clean.includes('.')) {
+                clean = clean.replace(/\./g, '').replace(',', '.');
+            } else if (clean.includes(',')) {
+                clean = clean.replace(',', '.');
+            }
+            const parsed = parseFloat(clean);
+            if (!Number.isFinite(parsed)) return 0;
+            if (isPercentage && !String(val).includes('%') && parsed > 0 && parsed <= 1) {
+                return parsed * 100;
+            }
+            return parsed;
+        }
+
+        function parseFlexTimeToSeconds(val) {
+            if (val === null || val === undefined || val === '') return 0;
+            if (val instanceof Date && !isNaN(val.getTime())) {
+                return val.getHours() * 3600 + val.getMinutes() * 60 + val.getSeconds();
+            }
+            if (typeof val === 'number') {
+                if (!Number.isFinite(val) || val <= 0) return 0;
+                // Fração de dia do Excel (ex: 0.038576 = 55m33s)
+                if (val < 1) return Math.round(val * 86400);
+                // Se for menor que 300, provavelmente minutos; caso contrário segundos
+                return val <= 300 ? Math.round(val * 60) : Math.round(val);
+            }
+            const str = String(val).trim();
+            const hms = str.match(/(\d{1,3}):(\d{2})(?::(\d{2}))?/);
+            if (hms) {
+                const a = parseInt(hms[1], 10);
+                const b = parseInt(hms[2], 10);
+                const c = hms[3] !== undefined ? parseInt(hms[3], 10) : 0;
+                return a * 3600 + b * 60 + c;
+            }
+            const num = parseFloat(str.replace(',', '.'));
+            if (Number.isFinite(num) && num > 0) {
+                return num < 1 ? Math.round(num * 86400) : Math.round(num * 60);
+            }
+            return 0;
+        }
+
+        function secondsToTime(totalSec) {
+            const sec = Math.max(0, Math.round(Number(totalSec) || 0));
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function getMean(arr) {
+            const valid = (arr || []).map(Number).filter(n => Number.isFinite(n));
+            if (!valid.length) return 0;
+            return valid.reduce((a, b) => a + b, 0) / valid.length;
+        }
+
+        function getMedian(arr) {
+            const valid = (arr || []).map(Number).filter(n => Number.isFinite(n)).sort((a, b) => a - b);
+            if (!valid.length) return 0;
+            const mid = Math.floor(valid.length / 2);
+            return valid.length % 2 !== 0 ? valid[mid] : (valid[mid - 1] + valid[mid]) / 2;
+        }
+
+        function getStdDev(arr, mean) {
+            const valid = (arr || []).map(Number).filter(n => Number.isFinite(n));
+            if (valid.length <= 1) return 0;
+            const m = Number.isFinite(mean) ? mean : getMean(valid);
+            const variance = valid.reduce((acc, v) => acc + Math.pow(v - m, 2), 0) / valid.length;
+            return Math.sqrt(variance);
+        }
+
+        // =========================================================================
+        // 4. MOTOR DE ANÁLISE PEDAGÓGICA E COMPORTAMENTAL
+        // =========================================================================
+        function computeAnalytics() {
+            const totalQ = appState.itens.length > 0
+                ? appState.itens.length
+                : (appState.alunos.length > 0 && appState.alunos[0].total > 0 ? appState.alunos[0].total : (appState.meta.totalQuestoes || 30));
+            appState.meta.totalQuestoes = totalQ;
+
+            const alunosBase = (appState.alunos || []).map((a, idx) => {
+                const acertosNum = Math.max(0, Number(a.acertos) || 0);
+                const totalAluno = Number(a.total) > 0 ? Number(a.total) : totalQ;
+                const pct = totalAluno > 0 ? Math.min(100, (acertosNum / totalAluno) * 100) : 0;
+                const tempoSeg = parseFlexTimeToSeconds(a.tempoStr);
+                const tempoMin = tempoSeg / 60;
+                const emBrancoNum = Math.max(0, Number(a.emBranco) || 0);
+                const segPorQuestao = totalAluno > 0 ? tempoSeg / totalAluno : 0;
+                return {
+                    ...a,
+                    uid: a.uid || `${a.matricula || idx}_${a.nome}`,
+                    matricula: String(a.matricula || '').trim(),
+                    nome: String(a.nome || 'ESTUDANTE').trim(),
+                    acertos: acertosNum,
+                    total: totalAluno,
+                    emBranco: emBrancoNum,
+                    pct,
+                    tempoSeg,
+                    tempoMin,
+                    segPorQuestao,
+                    tempoFormatted: secondsToTime(tempoSeg)
+                };
+            });
+
+            const notasPct = alunosBase.map(a => a.pct);
+            const acertosArr = alunosBase.map(a => a.acertos);
+            const temposSegValid = alunosBase.filter(a => a.tempoSeg > 0).map(a => a.tempoSeg);
+
+            const mediaPct = getMean(notasPct);
+            const medianaPct = getMedian(notasPct);
+            const mediaAcertos = getMean(acertosArr);
+            const medianaAcertos = getMedian(acertosArr);
+            const desvioPadrao = getStdDev(notasPct, mediaPct);
+            const minNota = notasPct.length ? Math.min(...notasPct) : 0;
+            const maxNota = notasPct.length ? Math.max(...notasPct) : 0;
+            const aprovadosSenaiCount = alunosBase.filter(a => a.pct >= 60).length;
+            const aprovadosSenaiPct = alunosBase.length > 0 ? (aprovadosSenaiCount / alunosBase.length) * 100 : 0;
+
+            const tempoMedioSeg = getMean(temposSegValid);
+            const tempoMedianoSeg = getMedian(temposSegValid);
+            const tempoPorQuestaoSeg = totalQ > 0 ? tempoMedianoSeg / totalQ : 0;
+
+            // Limiares comportamentais dinâmicos baseados na mediana da turma
+            const limiarRapidoBaixoSeg = tempoMedianoSeg > 0 ? tempoMedianoSeg * 0.45 : totalQ * 18;
+            const limiarRapidoAltoSeg = tempoMedianoSeg > 0 ? tempoMedianoSeg * 0.55 : totalQ * 22;
+
+            let alertasCount = 0;
+
+            const alunosEnriquecidos = alunosBase.map(a => {
+                const diffMediana = a.pct - medianaPct;
+                const hasMuitosBrancos = a.total > 0 && (a.emBranco / a.total) >= 0.15;
+                const isMuitoRapidoBaixo = a.tempoSeg > 0 && a.tempoSeg < limiarRapidoBaixoSeg && a.pct < mediaPct;
+                const isMuitoRapidoAlto = a.tempoSeg > 0 && a.tempoSeg < limiarRapidoAltoSeg && a.pct >= mediaPct;
+
+                let perfilTipo = 'REGULAR';
+                let perfil = '✅ Ritmo Regular';
+                let perfilBadge = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                let perfilDesc = `Realizou a prova em ${a.tempoFormatted} (${Math.round(a.segPorQuestao)}s/item) com aproveitamento de ${formatPct(a.pct)}, compatível com o ritmo esperado da turma.`;
+
+                if (isMuitoRapidoBaixo || hasMuitosBrancos) {
+                    perfilTipo = 'RAPIDO_BAIXO';
+                    perfil = '🚨 Alerta Rapidez / Chute';
+                    perfilBadge = 'bg-rose-100 text-rose-900 border-rose-300';
+                    const razoes = [];
+                    if (isMuitoRapidoBaixo) razoes.push(`tempo muito abaixo da mediana (${a.tempoFormatted}, < 45% de ${secondsToTime(tempoMedianoSeg)})`);
+                    if (hasMuitosBrancos) razoes.push(`${a.emBranco} questões em branco`);
+                    perfilDesc = `Sinal de possível chute aleatório, baixo engajamento ou abandono: ${razoes.join(' e ')}, com ${formatPct(a.pct)} de acerto.`;
+                    alertasCount++;
+                } else if (isMuitoRapidoAlto) {
+                    perfilTipo = 'RAPIDO_ALTO';
+                    perfil = '⚡ Muito Rápido + Nota Alta';
+                    perfilBadge = 'bg-purple-100 text-purple-900 border-purple-300';
+                    perfilDesc = `Concluiu em ${a.tempoFormatted} (< 55% da mediana) com ${formatPct(a.pct)} de aproveitamento. Pode indicar facilidade prévia excepcional ou necessidade de verificar integridade/cola.`;
+                    alertasCount++;
+                } else if (a.tempoSeg > tempoMedianoSeg && a.pct < 50) {
+                    perfilTipo = 'ESFORCO';
+                    perfil = '🐢 Alto Esforço / Dificuldade';
+                    perfilBadge = 'bg-amber-100 text-amber-900 border-amber-300';
+                    perfilDesc = `Dedicou tempo acima da mediana (${a.tempoFormatted}), mas obteve ${formatPct(a.pct)}. Demonstra empenho real com defasagem conceitual — grupo prioritário para reforço.`;
+                }
+
+                return { ...a, diffMediana, perfilTipo, perfil, perfilBadge, perfilDesc };
+            });
+
+            appState.alunos = alunosEnriquecidos;
+
+            // Agrupamento por Subfunção
+            const subMap = {};
+            (appState.itens || []).forEach(item => {
+                const key = String(item.subfuncao || "Competência Geral").trim() || "Competência Geral";
+                if (!subMap[key]) subMap[key] = { nome: key, sum: 0, count: 0 };
+                subMap[key].sum += Number(item.acertosPct) || 0;
+                subMap[key].count++;
+            });
+
+            let subfuncoes = Object.values(subMap).map(s => ({
+                nome: s.nome,
+                qtdItens: s.count,
+                media: s.count > 0 ? s.sum / s.count : 0
+            }));
+
+            if (Array.isArray(appState.subfuncoesCruzamento) && appState.subfuncoesCruzamento.length > 0) {
+                appState.subfuncoesCruzamento.forEach(sc => {
+                    const existing = subfuncoes.find(s => normalizeText(s.nome) === normalizeText(sc.nome));
+                    if (existing) {
+                        if (Number.isFinite(sc.media) && sc.media > 0) existing.media = sc.media;
+                        if (sc.qtdItens > 0 && existing.qtdItens === 0) existing.qtdItens = sc.qtdItens;
+                    } else {
+                        subfuncoes.push({ nome: sc.nome, qtdItens: sc.qtdItens || 0, media: sc.media || 0 });
+                    }
+                });
+            }
+            subfuncoes.sort((a, b) => b.media - a.media);
+
+            // Agrupamento por Conhecimento / Capacidade
+            const conMap = {};
+            (appState.itens || []).forEach(item => {
+                const key = String(item.conhecimento || "Não especificado").trim() || "Não especificado";
+                if (!conMap[key]) conMap[key] = { nome: key, subfuncao: item.subfuncao || "Competência Geral", sum: 0, count: 0 };
+                conMap[key].sum += Number(item.acertosPct) || 0;
+                conMap[key].count++;
+            });
+            const conhecimentos = Object.values(conMap).map(c => ({
+                nome: c.nome,
+                subfuncao: c.subfuncao,
+                qtdItens: c.count,
+                media: c.count > 0 ? c.sum / c.count : 0
+            })).sort((a, b) => a.media - b.media);
+
+            // Agrupamento por Dificuldade
+            const difOrdem = ["Muito Fácil", "Fácil", "Médio", "Difícil", "Muito Difícil"];
+            const difMap = {};
+            (appState.itens || []).forEach(item => {
+                const normDif = normalizeText(item.dificuldade || "Médio");
+                let canonical = "Médio";
+                if (normDif.includes("muito facil")) canonical = "Muito Fácil";
+                else if (normDif.includes("facil")) canonical = "Fácil";
+                else if (normDif.includes("muito dificil")) canonical = "Muito Difícil";
+                else if (normDif.includes("dificil")) canonical = "Difícil";
+                item.dificuldade = canonical;
+
+                if (!difMap[canonical]) difMap[canonical] = { nome: canonical, sum: 0, count: 0 };
+                difMap[canonical].sum += Number(item.acertosPct) || 0;
+                difMap[canonical].count++;
+            });
+            const dificuldades = difOrdem.filter(d => difMap[d]).map(d => ({
+                nome: d,
+                media: difMap[d].count > 0 ? difMap[d].sum / difMap[d].count : 0,
+                qtd: difMap[d].count
+            }));
+
+            // Distratores Dominantes nos Itens
+            (appState.itens || []).forEach(item => {
+                const letras = ['A', 'B', 'C', 'D', 'E'];
+                let maxDistLetra = null;
+                let maxDistPct = 0;
+                const gab = String(item.gabarito || '').trim().toUpperCase();
+                letras.forEach(l => {
+                    const v = item.dist ? (Number(item.dist[l]) || 0) : 0;
+                    if (l !== gab && v > maxDistPct) {
+                        maxDistPct = v;
+                        maxDistLetra = l;
+                    }
+                });
+                item.distratorAtrativo = maxDistPct > (Number(item.acertosPct) || 0) ? { letra: maxDistLetra, pct: maxDistPct } : null;
+            });
+
+            appState.stats = {
+                mediaPct, medianaPct, mediaAcertos, medianaAcertos, desvioPadrao,
+                minNota, maxNota, aprovadosSenaiCount, aprovadosSenaiPct,
+                tempoMedioSeg, tempoMedianoSeg, tempoPorQuestaoSeg,
+                limiarRapidoBaixoSeg, alertasCount, subfuncoes, conhecimentos, dificuldades
+            };
+        }
+
+        // =========================================================================
+        // 5. RENDERIZAÇÃO DA INTERFACE E GRÁFICOS SVG INTERATIVOS
+        // =========================================================================
+        function renderAll() {
+            computeAnalytics();
+            renderHeaderAndKPIs();
+            renderVisaoGeral();
+            renderCompetencias();
+            renderItensTable();
+            renderAlunosTable();
+        }
+
+        function renderHeaderAndKPIs() {
+            const { meta, stats, alunos } = appState;
+            document.getElementById('metaEscola').textContent = meta.escola || 'Unidade SENAI';
+            document.getElementById('metaPeriodo').textContent = meta.periodo || '-';
+            document.getElementById('metaAvaliacao').textContent = meta.avaliacao || 'Avaliação Diagnóstica SAEP';
+            document.getElementById('metaCurso').textContent = meta.curso || '-';
+            document.getElementById('metaTurma').textContent = meta.turma || '-';
+            document.getElementById('metaTurno').textContent = meta.turno || '-';
+
+            document.getElementById('metaTotalAlunos').textContent = alunos.length;
+            document.getElementById('metaTotalQuestoes').textContent = meta.totalQuestoes;
+            document.getElementById('metaTotalSubfuncoes').textContent = stats.subfuncoes.length;
+
+            document.getElementById('kpiMediaPct').textContent = formatPct(stats.mediaPct);
+            document.getElementById('kpiMediaAcertos').textContent = `(${stats.mediaAcertos.toFixed(1).replace('.', ',')} / ${meta.totalQuestoes})`;
+            const mediaStatus = document.getElementById('kpiMediaStatus');
+            if (stats.mediaPct >= 60) {
+                mediaStatus.className = "text-xs font-semibold text-emerald-600 mt-1";
+                mediaStatus.textContent = "✓ Acima da meta institucional (≥ 60%)";
+            } else {
+                mediaStatus.className = "text-xs font-semibold text-amber-600 mt-1";
+                mediaStatus.textContent = "⚠ Faixa de Atenção (< 60%)";
+            }
+
+            document.getElementById('kpiMedianaPct').textContent = formatPct(stats.medianaPct);
+            document.getElementById('kpiMedianaAcertos').textContent = `(${stats.medianaAcertos.toFixed(1).replace('.', ',')} acertos)`;
+            const diffMed = stats.medianaPct - stats.mediaPct;
+            const medianaDiffEl = document.getElementById('kpiMedianaDiff');
+            if (Math.abs(diffMed) >= 2.5) {
+                medianaDiffEl.className = "text-xs font-semibold text-amber-700 mt-1";
+                medianaDiffEl.textContent = diffMed > 0
+                    ? `⚠ +${diffMed.toFixed(1).replace('.', ',')} p.p. acima da média (outliers puxam p/ baixo)`
+                    : `⚠ ${diffMed.toFixed(1).replace('.', ',')} p.p. abaixo da média (outliers puxam p/ cima)`;
+            } else {
+                medianaDiffEl.className = "text-xs text-slate-500 mt-1";
+                medianaDiffEl.textContent = `Distribuição simétrica (${diffMed >= 0 ? '+' : ''}${diffMed.toFixed(1).replace('.', ',')} p.p. vs. média)`;
+            }
+
+            document.getElementById('kpiMetaSenaiPct').textContent = formatPct(stats.aprovadosSenaiPct);
+            document.getElementById('kpiMetaSenaiCount').textContent = `(${stats.aprovadosSenaiCount} de ${alunos.length})`;
+            document.getElementById('kpiAmplitude').innerHTML = `DP: ±${stats.desvioPadrao.toFixed(1).replace('.', ',')}% • Amp: <strong class="text-rose-600">${formatPct(stats.minNota)}</strong> a <strong class="text-emerald-600">${formatPct(stats.maxNota)}</strong>`;
+
+            document.getElementById('kpiTempoMediano').textContent = secondsToTime(stats.tempoMedianoSeg);
+            document.getElementById('kpiTempoDetalhes').textContent = `Média: ${secondsToTime(stats.tempoMedioSeg)} (~${Math.round(stats.tempoPorQuestaoSeg)}s / questão)`;
+
+            document.getElementById('kpiAlertasCount').textContent = `${stats.alertasCount} ${stats.alertasCount === 1 ? 'aluno' : 'alunos'}`;
+            document.getElementById('kpiAlertasResumo').textContent = stats.alertasCount > 0
+                ? `Tempo < ${secondsToTime(stats.limiarRapidoBaixoSeg)} ou itens em branco`
+                : `Nenhum tempo atípico detectado`;
+
+            document.getElementById('chartMedianaLabel').textContent = formatPct(stats.medianaPct);
+            document.getElementById('limiarVelocidadeBadge').textContent = `Limite rápido (< 45% mediana): ${secondsToTime(stats.limiarRapidoBaixoSeg)}`;
+        }
+
+        function renderVisaoGeral() {
+            const { alunos, stats } = appState;
+            const pioresCon = stats.conhecimentos.slice(0, 2);
+            const melhoresCon = [...stats.conhecimentos].reverse().slice(0, 2);
+            const rapidos = alunos.filter(a => a.perfilTipo === 'RAPIDO_BAIXO' || a.perfilTipo === 'RAPIDO_ALTO');
+
+            let sintese = `A turma <strong>${escapeHtml(appState.meta.turma)}</strong> (${escapeHtml(appState.meta.curso)}) obteve mediana de <strong>${formatPct(stats.medianaPct)}</strong> e média de <strong>${formatPct(stats.mediaPct)}</strong>, com <strong>${stats.aprovadosSenaiCount} de ${alunos.length}</strong> respondentes (${formatPct(stats.aprovadosSenaiPct)}) atingindo a meta de 60%. `;
+            if (rapidos.length > 0) {
+                const nomes = rapidos.map(r => `<strong>${escapeHtml(r.nome.split(' ').slice(0, 2).join(' '))}</strong> (${r.tempoFormatted} — ${formatPct(r.pct)})`).join(', ');
+                sintese += `Foram sinalizados <strong>${rapidos.length} registros atípicos de tempo</strong> (${nomes}), que impactam a média geral da turma. `;
+            }
+            if (melhoresCon.length > 0) {
+                sintese += `<strong>Pontos Fortes:</strong> ${melhoresCon.map(c => `"${escapeHtml(c.nome)}" (${formatPct(c.media)})`).join(' e ')}. `;
+            }
+            if (pioresCon.length > 0) {
+                sintese += `<strong>Pontos Críticos Prioritários:</strong> ${pioresCon.map(c => `"${escapeHtml(c.nome)}" (${formatPct(c.media)})`).join(' e ')}.`;
+            }
+            document.getElementById('executiveSummaryText').innerHTML = sintese;
+
+            renderScatterSvg();
+            renderBarAlunosSvg();
+
+            // Cards comportamentais
+            const container = document.getElementById('behavioralCardsContainer');
+            const destaques = [
+                ...alunos.filter(a => a.perfilTipo === 'RAPIDO_BAIXO' || a.perfilTipo === 'RAPIDO_ALTO'),
+                ...alunos.filter(a => a.perfilTipo === 'ESFORCO').slice(0, 3),
+                ...alunos.filter(a => a.perfilTipo === 'REGULAR' && a.pct >= 60).slice(0, 2)
+            ].slice(0, 6);
+
+            if (!destaques.length) {
+                container.innerHTML = `<div class="col-span-full p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">Carregue a planilha de Desempenho Individual para visualizar a análise comportamental.</div>`;
+                return;
+            }
+
+            container.innerHTML = destaques.map(a => {
+                const borderClass = a.perfilTipo === 'RAPIDO_BAIXO' ? 'border-rose-300 bg-rose-50/40'
+                    : a.perfilTipo === 'RAPIDO_ALTO' ? 'border-purple-300 bg-purple-50/40'
+                    : a.perfilTipo === 'ESFORCO' ? 'border-amber-200 bg-amber-50/30'
+                    : 'border-emerald-200 bg-emerald-50/30';
+                const badgeNota = a.perfilTipo === 'RAPIDO_BAIXO' ? 'bg-rose-600 text-white'
+                    : a.perfilTipo === 'RAPIDO_ALTO' ? 'bg-purple-700 text-white'
+                    : 'bg-slate-800 text-white';
+                const safeUid = a.uid.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+                return `
+                    <div onclick="openStudentModal('${safeUid}')" class="p-4 rounded-xl border ${borderClass} hover:shadow-md transition cursor-pointer flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-start justify-between gap-2">
+                                <h4 class="font-bold text-slate-900 text-xs sm:text-sm leading-snug">${escapeHtml(a.nome)}</h4>
+                                <span class="text-xs font-extrabold px-2 py-0.5 rounded-lg ${badgeNota} shrink-0">${formatPct(a.pct)}</span>
+                            </div>
+                            <span class="inline-block mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md border ${a.perfilBadge}">${escapeHtml(a.perfil)}</span>
+                            <p class="text-xs text-slate-600 mt-2 leading-relaxed">${escapeHtml(a.perfilDesc)}</p>
+                        </div>
+                        <div class="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+                            <span class="font-mono font-medium">⏱ ${a.tempoFormatted}</span>
+                            <span>${a.emBranco > 0 ? `<strong class="text-rose-600">${a.emBranco} em branco</strong>` : `${a.acertos}/${a.total} acertos`}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Gráfico de Dispersão SVG Responsivo e Interativo (Tempo x Desempenho %)
+        function renderScatterSvg() {
+            const container = document.getElementById('scatterSvgContainer');
+            const { alunos, stats } = appState;
+            if (!alunos.length) {
+                container.innerHTML = `<div class="h-64 flex items-center justify-center text-xs text-slate-400">Sem dados de estudantes carregados.</div>`;
+                return;
+            }
+
+            const W = 620, H = 310;
+            const padL = 46, padR = 20, padT = 18, padB = 40;
+            const plotW = W - padL - padR;
+            const plotH = H - padT - padB;
+
+            const maxMin = Math.max(15, Math.ceil(Math.max(...alunos.map(a => a.tempoMin), (stats.tempoMedianoSeg / 60) * 1.3) / 10) * 10);
+            const toX = (min) => padL + (Math.min(maxMin, Math.max(0, min)) / maxMin) * plotW;
+            const toY = (pct) => padT + plotH - (Math.min(100, Math.max(0, pct)) / 100) * plotH;
+
+            const medTimeMin = stats.tempoMedianoSeg / 60;
+            const medTimeX = toX(medTimeMin);
+            const medNotaY = toY(stats.medianaPct);
+
+            let gridLines = '';
+            for (let y = 0; y <= 100; y += 20) {
+                const py = toY(y);
+                gridLines += `<line x1="${padL}" y1="${py}" x2="${W - padR}" y2="${py}" stroke="#f1f5f9" stroke-width="1"/>`;
+                gridLines += `<text x="${padL - 8}" y="${py + 4}" text-anchor="end" font-size="10" fill="#64748b">${y}%</text>`;
+            }
+            const xSteps = 5;
+            for (let i = 0; i <= xSteps; i++) {
+                const mVal = Math.round((maxMin / xSteps) * i);
+                const px = toX(mVal);
+                gridLines += `<line x1="${px}" y1="${padT}" x2="${px}" y2="${padT + plotH}" stroke="#f1f5f9" stroke-width="1"/>`;
+                gridLines += `<text x="${px}" y="${padT + plotH + 16}" text-anchor="middle" font-size="10" fill="#64748b">${mVal}m</text>`;
+            }
+
+            const refLines = `
+                <line x1="${medTimeX}" y1="${padT}" x2="${medTimeX}" y2="${padT + plotH}" stroke="#0284c7" stroke-width="1.5" stroke-dasharray="4 4"/>
+                <text x="${Math.min(W - 75, medTimeX + 4)}" y="${padT + 12}" font-size="9.5" font-weight="600" fill="#0284c7">Med. Tempo (${Math.round(medTimeMin)}m)</text>
+                <line x1="${padL}" y1="${medNotaY}" x2="${W - padR}" y2="${medNotaY}" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4 4"/>
+                <text x="${padL + 6}" y="${Math.max(padT + 12, medNotaY - 5)}" font-size="9.5" font-weight="600" fill="#6366f1">Med. Nota (${formatPct(stats.medianaPct)})</text>
+            `;
+
+            const circles = alunos.map(a => {
+                const cx = toX(a.tempoMin);
+                const cy = toY(a.pct);
+                const color = a.perfilTipo === 'RAPIDO_BAIXO' ? '#ef4444'
+                    : a.perfilTipo === 'RAPIDO_ALTO' ? '#7e22ce'
+                    : a.perfilTipo === 'ESFORCO' ? '#f59e0b'
+                    : '#10b981';
+                const safeUid = a.uid.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const tipText = `${escapeHtml(a.nome)} | Nota: ${formatPct(a.pct)} (${a.acertos}/${a.total}) | Tempo: ${a.tempoFormatted}`;
+                return `<circle cx="${cx}" cy="${cy}" r="6.5" fill="${color}" stroke="#ffffff" stroke-width="1.5" class="cursor-pointer transition-transform hover:scale-125"
+                    onmousemove="showSvgTooltip(event, '${tipText.replace(/'/g, "\\'")}')"
+                    onmouseleave="hideSvgTooltip()"
+                    onclick="openStudentModal('${safeUid}')"/>`;
+            }).join('');
+
+            container.innerHTML = `
+                <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto select-none">
+                    ${gridLines}
+                    ${refLines}
+                    <text x="${W / 2}" y="${H - 6}" text-anchor="middle" font-size="11" font-weight="600" fill="#475569">Tempo de Realização (minutos)</text>
+                    ${circles}
+                </svg>
+            `;
+        }
+
+        function renderBarAlunosSvg() {
+            const container = document.getElementById('barAlunosSvgContainer');
+            const { alunos, stats } = appState;
+            if (!alunos.length) {
+                container.innerHTML = `<div class="h-64 flex items-center justify-center text-xs text-slate-400">Sem dados de estudantes.</div>`;
+                return;
+            }
+            const sorted = [...alunos].sort((a, b) => b.pct - a.pct || a.tempoSeg - b.tempoSeg);
+            container.innerHTML = `<div class="space-y-2 pr-1">` + sorted.map(a => {
+                const barColor = a.perfilTipo === 'RAPIDO_BAIXO' ? 'bg-rose-500'
+                    : a.perfilTipo === 'RAPIDO_ALTO' ? 'bg-purple-600'
+                    : a.pct >= 60 ? 'bg-emerald-500'
+                    : a.pct >= 45 ? 'bg-sky-500'
+                    : 'bg-amber-500';
+                const safeUid = a.uid.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const shortName = a.nome.split(' ').slice(0, 2).join(' ');
+                return `
+                    <div onclick="openStudentModal('${safeUid}')" class="group cursor-pointer">
+                        <div class="flex items-center justify-between text-xs mb-0.5">
+                            <span class="font-medium text-slate-700 group-hover:text-senai-600 truncate max-w-[60%]" title="${escapeHtml(a.nome)}">${escapeHtml(shortName)}</span>
+                            <span class="font-mono text-[11px] text-slate-500">${a.tempoFormatted} • <strong class="text-slate-800">${formatPct(a.pct)}</strong></span>
+                        </div>
+                        <div class="relative w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="${barColor} h-2.5 rounded-full transition-all" style="width: ${Math.min(100, a.pct)}%"></div>
+                            <div class="absolute top-0 bottom-0 w-0.5 bg-indigo-900/70" style="left: ${Math.min(100, stats.medianaPct)}%" title="Mediana: ${formatPct(stats.medianaPct)}"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('') + `</div>`;
+        }
+
+        function showSvgTooltip(e, text) {
+            const tip = document.getElementById('svgTooltip');
+            tip.textContent = text;
+            tip.style.left = `${Math.min(window.innerWidth - 260, e.clientX + 12)}px`;
+            tip.style.top = `${Math.max(10, e.clientY - 36)}px`;
+            tip.classList.remove('hidden');
+        }
+
+        function hideSvgTooltip() {
+            document.getElementById('svgTooltip').classList.add('hidden');
+        }
+
+        function renderCompetencias() {
+            const { subfuncoes, conhecimentos, dificuldades } = appState.stats;
+
+            const fortes = [...conhecimentos].filter(c => c.media >= 60).reverse();
+            const fracos = conhecimentos.filter(c => c.media < 50);
+
+            document.getElementById('countPontosFortes').textContent = `${fortes.length} ${fortes.length === 1 ? 'área' : 'áreas'}`;
+            document.getElementById('listaPontosFortes').innerHTML = fortes.length
+                ? fortes.map(c => `
+                    <div class="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/80 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs sm:text-sm font-bold text-slate-900 truncate" title="${escapeHtml(c.nome)}">${escapeHtml(c.nome)}</p>
+                            <span class="text-[11px] text-emerald-700">${escapeHtml(c.subfuncao)} • ${c.qtdItens} ${c.qtdItens === 1 ? 'item' : 'itens'}</span>
+                        </div>
+                        <span class="text-sm font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg shrink-0">${formatPct(c.media)}</span>
+                    </div>
+                `).join('')
+                : `<p class="text-xs text-slate-500 italic">Nenhum objeto de conhecimento atingiu ≥ 60% nesta avaliação.</p>`;
+
+            document.getElementById('countPontosFracos').textContent = `${fracos.length} ${fracos.length === 1 ? 'área' : 'áreas'}`;
+            document.getElementById('listaPontosFracos').innerHTML = fracos.length
+                ? fracos.slice(0, 6).map(c => `
+                    <div class="p-3 rounded-xl bg-rose-50/60 border border-rose-200/80 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs sm:text-sm font-bold text-slate-900 truncate" title="${escapeHtml(c.nome)}">${escapeHtml(c.nome)}</p>
+                            <span class="text-[11px] text-rose-700">${escapeHtml(c.subfuncao)} • ${c.qtdItens} ${c.qtdItens === 1 ? 'item' : 'itens'}</span>
+                        </div>
+                        <span class="text-sm font-extrabold text-rose-700 bg-rose-100 px-2.5 py-1 rounded-lg shrink-0">${formatPct(c.media)}</span>
+                    </div>
+                `).join('')
+                : `<p class="text-xs text-slate-500 italic">Nenhuma área crítica abaixo de 50%.</p>`;
+
+            // Barras de Subfunções (Verde >= 70%, Âmbar 50-69%, Coral < 50%)
+            document.getElementById('subfuncoesBarsContainer').innerHTML = subfuncoes.length
+                ? subfuncoes.map(s => {
+                    const color = s.media >= 70 ? 'bg-emerald-500' : s.media >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+                    const badge = s.media >= 70 ? 'text-emerald-700 bg-emerald-50' : s.media >= 50 ? 'text-amber-700 bg-amber-50' : 'text-rose-700 bg-rose-50';
+                    return `
+                        <div>
+                            <div class="flex items-center justify-between gap-2 text-xs mb-1">
+                                <span class="font-semibold text-slate-800">${escapeHtml(s.nome)} ${s.qtdItens ? `<span class="text-slate-400 font-normal">(${s.qtdItens} itens)</span>` : ''}</span>
+                                <span class="font-extrabold px-2 py-0.5 rounded ${badge}">${formatPct(s.media)}</span>
+                            </div>
+                            <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="${color} h-3 rounded-full transition-all" style="width: ${Math.min(100, s.media)}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')
+                : `<p class="text-xs text-slate-400">Sem dados de subfunções carregados.</p>`;
+
+            // Barras de Dificuldade
+            document.getElementById('dificuldadeBarsContainer').innerHTML = dificuldades.map(d => {
+                const color = d.media >= 65 ? 'bg-emerald-500' : d.media >= 45 ? 'bg-sky-500' : 'bg-rose-500';
+                return `
+                    <div>
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="font-semibold text-slate-700">${escapeHtml(d.nome)} <span class="text-slate-400 font-normal">(${d.qtd}q)</span></span>
+                            <span class="font-bold text-slate-900">${formatPct(d.media)}</span>
+                        </div>
+                        <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="${color} h-2.5 rounded-full" style="width: ${Math.min(100, d.media)}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const difFacil = dificuldades.find(d => d.nome === 'Fácil');
+            const anomaliaBox = document.getElementById('alertaDificuldadeBox');
+            if (difFacil && difFacil.media < 60) {
+                anomaliaBox.innerHTML = `<strong>Alerta Psicométrico:</strong> Itens classificados como <em>"Fácil"</em> tiveram média de <strong>${formatPct(difFacil.media)}</strong>. Recomenda-se verificar se os conteúdos base foram trabalhados em sala antes da aplicação.`;
+            } else {
+                anomaliaBox.innerHTML = `<strong>Curva Coerente:</strong> A taxa de acerto acompanha o gradiente esperado de dificuldade dos itens.`;
+            }
+
+            // Tabela Completa de Conhecimentos
+            document.getElementById('tabelaConhecimentosBody').innerHTML = conhecimentos.map(c => {
+                const badge = c.media >= 70
+                    ? `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Consolidado (≥ 70%)</span>`
+                    : c.media >= 50
+                    ? `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Atenção (50%–69%)</span>`
+                    : `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">Crítico (&lt; 50%)</span>`;
+                const barColor = c.media >= 70 ? 'bg-emerald-500' : c.media >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+                return `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 px-4 font-semibold text-slate-900">${escapeHtml(c.nome)}</td>
+                        <td class="py-3 px-4 text-xs text-slate-600">${escapeHtml(c.subfuncao)}</td>
+                        <td class="py-3 px-4 text-center text-xs font-medium text-slate-700">${c.qtdItens}</td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-24 bg-slate-200 rounded-full h-2 overflow-hidden">
+                                    <div class="${barColor} h-2 rounded-full" style="width: ${Math.min(100, c.media)}%"></div>
+                                </div>
+                                <span class="font-bold text-xs text-slate-800">${formatPct(c.media)}</span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4">${badge}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderItensTable() {
+            const difFilter = document.getElementById('filterDificuldade').value;
+            const statusFilter = document.getElementById('filterStatusItem').value;
+
+            const filtered = appState.itens.filter(item => {
+                if (difFilter !== 'ALL' && item.dificuldade !== difFilter) return false;
+                if (statusFilter === 'CRITICO' && item.acertosPct >= 40) return false;
+                if (statusFilter === 'DISTRATOR' && !item.distratorAtrativo) return false;
+                if (statusFilter === 'FACEIS_ERRADAS' && !((item.dificuldade === 'Fácil' || item.dificuldade === 'Muito Fácil') && item.acertosPct < 60)) return false;
+                if (statusFilter === 'FORTE' && item.acertosPct < 60) return false;
+                return true;
+            });
+
+            const letras = ['A', 'B', 'C', 'D', 'E'];
+
+            document.getElementById('tabelaItensBody').innerHTML = filtered.map(item => {
+                const acertoColor = item.acertosPct >= 60 ? 'text-emerald-700 bg-emerald-100' : item.acertosPct >= 40 ? 'text-amber-700 bg-amber-100' : 'text-rose-700 bg-rose-100';
+                const distPills = letras.map(l => {
+                    const val = item.dist ? (item.dist[l] || 0) : 0;
+                    const isGab = l === item.gabarito;
+                    const isDistAtrativo = item.distratorAtrativo && item.distratorAtrativo.letra === l;
+                    let cls = 'bg-slate-100 text-slate-600';
+                    if (isGab) cls = 'bg-emerald-600 text-white font-bold ring-1 ring-emerald-300';
+                    else if (isDistAtrativo) cls = 'bg-rose-100 text-rose-800 font-bold border border-rose-300';
+                    return `<span class="px-1.5 py-0.5 rounded text-[11px] ${cls}">${l}: ${Math.round(val)}%</span>`;
+                }).join(' ');
+
+                const brancoVal = item.dist ? (item.dist.Branco || item.brancoPct || 0) : (item.brancoPct || 0);
+                const brancoPill = brancoVal > 0 ? `<span class="px-1.5 py-0.5 rounded text-[11px] bg-slate-200 text-slate-700 font-medium">Br: ${Math.round(brancoVal)}%</span>` : '';
+
+                let alertaHtml = `<span class="text-xs text-slate-400">Normal</span>`;
+                if (item.acertosPct === 0) {
+                    alertaHtml = `<span class="inline-block text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">0% Acerto (Revisar Item)</span>`;
+                } else if (item.distratorAtrativo) {
+                    alertaHtml = `<span class="inline-block text-[11px] font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">Distrator "${item.distratorAtrativo.letra}" (${Math.round(item.distratorAtrativo.pct)}%) &gt; Gabarito</span>`;
+                } else if (item.acertosPct >= 75) {
+                    alertaHtml = `<span class="inline-block text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">Domínio Consolidado</span>`;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-3 px-3">
+                            <span class="font-bold text-slate-900">Q${String(item.num).padStart(2, '0')}</span>
+                            <span class="block text-[11px] font-mono text-slate-500">${escapeHtml(item.id)}</span>
+                        </td>
+                        <td class="py-3 px-3">
+                            <span class="font-medium text-slate-800 block">${escapeHtml(item.conhecimento)}</span>
+                            <span class="text-[11px] text-slate-400">${escapeHtml(item.subfuncao)}</span>
+                        </td>
+                        <td class="py-3 px-3 text-xs text-slate-600">${escapeHtml(item.dificuldade)}</td>
+                        <td class="py-3 px-3 text-center">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-senai-600 text-white font-bold text-xs">${escapeHtml(item.gabarito)}</span>
+                        </td>
+                        <td class="py-3 px-3 text-center">
+                            <span class="px-2 py-1 rounded-lg font-extrabold text-xs ${acertoColor}">${formatPct(item.acertosPct)}</span>
+                        </td>
+                        <td class="py-3 px-3">
+                            <div class="flex flex-wrap gap-1">${distPills} ${brancoPill}</div>
+                        </td>
+                        <td class="py-3 px-3">${alertaHtml}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function setAlunoSort(col) {
+            if (appState.alunoSort.col === col) {
+                appState.alunoSort.dir = appState.alunoSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                appState.alunoSort.col = col;
+                appState.alunoSort.dir = (col === 'nome' || col === 'perfil') ? 'asc' : 'desc';
+            }
+            renderAlunosTable();
+        }
+
+        function renderAlunosTable() {
+            const query = normalizeText(document.getElementById('searchAluno').value || '');
+            const perfilFilter = document.getElementById('filterPerfilAluno').value;
+
+            const filtered = appState.alunos.filter(a => {
+                const matchText = !query || normalizeText(a.nome).includes(query) || normalizeText(a.matricula).includes(query);
+                if (!matchText) return false;
+                if (perfilFilter === 'ALERTAS') return a.perfilTipo === 'RAPIDO_BAIXO' || a.perfilTipo === 'RAPIDO_ALTO';
+                if (perfilFilter !== 'ALL' && a.perfilTipo !== perfilFilter) return false;
+                return true;
+            });
+
+            const { col, dir } = appState.alunoSort;
+            const mult = dir === 'asc' ? 1 : -1;
+            filtered.sort((a, b) => {
+                if (col === 'nome' || col === 'perfil') {
+                    return String(a[col] || '').localeCompare(String(b[col] || ''), 'pt-BR') * mult;
+                }
+                return ((Number(a[col]) || 0) - (Number(b[col]) || 0)) * mult;
+            });
+
+            if (!filtered.length) {
+                document.getElementById('tabelaAlunosBody').innerHTML = `
+                    <tr><td colspan="8" class="py-8 px-4 text-center text-xs text-slate-500">Nenhum estudante encontrado.</td></tr>
+                `;
+                return;
+            }
+
+            document.getElementById('tabelaAlunosBody').innerHTML = filtered.map(a => {
+                const diffStr = (a.diffMediana >= 0 ? '+' : '') + a.diffMediana.toFixed(1).replace('.', ',') + ' p.p.';
+                const diffColor = a.diffMediana >= 0 ? 'text-emerald-600' : 'text-rose-600';
+                const notaBadge = a.pct >= 60 ? 'bg-emerald-100 text-emerald-800' : a.pct >= 45 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800';
+                const isRapido = a.perfilTipo === 'RAPIDO_BAIXO' || a.perfilTipo === 'RAPIDO_ALTO';
+                const safeUid = a.uid.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+                return `
+                    <tr onclick="openStudentModal('${safeUid}')" class="hover:bg-senai-50/50 transition cursor-pointer">
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-slate-900 block">${escapeHtml(a.nome)}</span>
+                            ${a.matricula ? `<span class="text-[11px] font-mono text-slate-500">Mat: ${escapeHtml(a.matricula)}</span>` : ''}
+                        </td>
+                        <td class="py-3 px-4 text-center font-medium text-slate-700">${a.acertos} / ${a.total}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2.5 py-1 rounded-lg font-extrabold text-xs ${notaBadge}">${formatPct(a.pct)}</span>
+                        </td>
+                        <td class="py-3 px-4 text-center font-semibold text-xs ${diffColor}">${diffStr}</td>
+                        <td class="py-3 px-4 text-center font-mono text-xs ${isRapido ? 'text-rose-600 font-bold' : 'text-slate-700'}">${a.tempoFormatted}</td>
+                        <td class="py-3 px-4 text-center text-xs ${a.emBranco > 0 ? 'text-rose-600 font-bold' : 'text-slate-400'}">${a.emBranco || 0}</td>
+                        <td class="py-3 px-4">
+                            <span class="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${a.perfilBadge}">${escapeHtml(a.perfil)}</span>
+                        </td>
+                        <td class="py-3 px-4 text-right no-print">
+                            <span class="text-xs font-semibold text-senai-600 hover:text-senai-800">Raio-X →</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // =========================================================================
+        // 6. MODAL DE RAIO-X INDIVIDUAL DO ESTUDANTE
+        // =========================================================================
+        function openStudentModal(uidOrNome) {
+            const aluno = appState.alunos.find(a => a.uid === uidOrNome || a.nome === uidOrNome);
+            if (!aluno) return;
+
+            document.getElementById('modalAlunoNome').textContent = aluno.matricula ? `${aluno.nome} (${aluno.matricula})` : aluno.nome;
+
+            let detalhesHtml = '';
+            if (aluno.respostas && aluno.respostas.length) {
+                const subStats = {};
+                const difStats = {};
+                const erradasList = [];
+
+                aluno.respostas.forEach(resp => {
+                    const item = appState.itens.find(i => i.num === resp.num || i.id === resp.itemId);
+                    if (!item) return;
+
+                    if (!subStats[item.subfuncao]) subStats[item.subfuncao] = { ok: 0, tot: 0 };
+                    subStats[item.subfuncao].tot++;
+                    if (resp.status === 'ACERTO') subStats[item.subfuncao].ok++;
+
+                    if (!difStats[item.dificuldade]) difStats[item.dificuldade] = { ok: 0, tot: 0 };
+                    difStats[item.dificuldade].tot++;
+                    if (resp.status === 'ACERTO') difStats[item.dificuldade].ok++;
+
+                    if (resp.status !== 'ACERTO') {
+                        erradasList.push({ item, marcada: resp.marcada, status: resp.status });
+                    }
+                });
+
+                detalhesHtml = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-bold text-slate-900 mb-2">Acertos por Subfunção</h4>
+                            <div class="space-y-2">
+                                ${Object.entries(subStats).map(([nome, s]) => {
+                                    const p = Math.round((s.ok / s.tot) * 100);
+                                    const cls = p >= 70 ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : p >= 50 ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-rose-50 border-rose-200 text-rose-900';
+                                    return `<div class="p-2.5 rounded-xl border ${cls} flex justify-between text-xs"><span class="font-medium truncate">${escapeHtml(nome)}</span><span class="font-bold">${s.ok}/${s.tot} (${p}%)</span></div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-900 mb-2">Acertos por Nível de Dificuldade</h4>
+                            <div class="space-y-2">
+                                ${Object.entries(difStats).map(([nome, s]) => {
+                                    const p = Math.round((s.ok / s.tot) * 100);
+                                    return `<div class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex justify-between text-xs"><span class="font-medium">${escapeHtml(nome)}</span><span class="font-bold text-slate-800">${s.ok}/${s.tot} (${p}%)</span></div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-900 mb-2">Questões Erradas ou em Branco (${erradasList.length})</h4>
+                        <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+                            ${erradasList.map(e => `
+                                <div class="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-slate-50">
+                                    <div>
+                                        <span class="font-bold text-slate-800">Q${String(e.item.num).padStart(2, '0')} (${escapeHtml(e.item.id)})</span>
+                                        <span class="text-slate-600"> — ${escapeHtml(e.item.conhecimento)}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-semibold">${e.status === 'BRANCO' ? 'Em Branco' : `Marcou: ${escapeHtml(e.marcada)}`}</span>
+                                        <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">Gab: ${escapeHtml(e.item.gabarito)}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                detalhesHtml = `<div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">Resumo consolidado carregado (${aluno.acertos} acertos de ${aluno.total}). Para ver item por item do aluno, inclua a aba "Registro" na planilha individual.</div>`;
+            }
+
+            document.getElementById('modalAlunoContent').innerHTML = `
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500 block">Aproveitamento</span>
+                        <span class="text-xl font-extrabold text-slate-900">${formatPct(aluno.pct)}</span>
+                        <span class="text-xs text-slate-500 block">${aluno.acertos} de ${aluno.total} acertos</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500 block">vs. Mediana / Média</span>
+                        <span class="text-xl font-extrabold ${aluno.diffMediana >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                            ${aluno.diffMediana >= 0 ? '+' : ''}${aluno.diffMediana.toFixed(1).replace('.', ',')} p.p.
+                        </span>
+                        <span class="text-xs text-slate-500 block">Med: ${formatPct(appState.stats.medianaPct)} | Méd: ${formatPct(appState.stats.mediaPct)}</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500 block">Tempo Realização</span>
+                        <span class="text-xl font-extrabold ${(aluno.perfilTipo === 'RAPIDO_BAIXO' || aluno.perfilTipo === 'RAPIDO_ALTO') ? 'text-rose-600' : 'text-slate-900'}">${aluno.tempoFormatted}</span>
+                        <span class="text-xs text-slate-500 block">Mediana: ${secondsToTime(appState.stats.tempoMedianoSeg)}</span>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <span class="text-xs text-slate-500 block">Em Branco</span>
+                        <span class="text-xl font-extrabold ${aluno.emBranco > 0 ? 'text-rose-600' : 'text-slate-900'}">${aluno.emBranco || 0}</span>
+                        <span class="text-xs text-slate-500 block">Sem resposta</span>
+                    </div>
+                </div>
+                <div class="p-4 rounded-xl border ${aluno.perfilBadge}">
+                    <h4 class="font-bold text-sm">${escapeHtml(aluno.perfil)}</h4>
+                    <p class="text-xs mt-1 leading-relaxed">${escapeHtml(aluno.perfilDesc)}</p>
+                </div>
+                ${detalhesHtml}
+            `;
+
+            document.getElementById('studentModal').classList.remove('hidden');
+        }
+
+        function closeStudentModal() {
+            document.getElementById('studentModal').classList.add('hidden');
+        }
+
+        // =========================================================================
+        // 7. UPLOAD, DRAG & DROP E PARSER GENÉRICO SAEP/SENAI
+        // =========================================================================
+        function setupDragAndDrop() {
+            [
+                { id: 'dropUnified', type: 'unified' },
+                { id: 'dropInd', type: 'individual' },
+                { id: 'dropComp', type: 'competencia' }
+            ].forEach(({ id, type }) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('dragover'); });
+                el.addEventListener('dragleave', () => el.classList.remove('dragover'));
+                el.addEventListener('drop', e => {
+                    e.preventDefault();
+                    el.classList.remove('dragover');
+                    const files = Array.from(e.dataTransfer.files || []);
+                    if (!files.length) return;
+                    if (type === 'unified' || files.length > 1) {
+                        processMultipleFiles(files);
+                    } else {
+                        processSingleFile(files[0], type);
+                    }
+                });
+            });
+        }
+
+        function handleUnifiedFileSelect(event) {
+            const files = Array.from(event.target.files || []);
+            if (files.length) processMultipleFiles(files);
+            event.target.value = '';
+        }
+
+        function handleFileSelect(event, forcedType) {
+            const files = Array.from(event.target.files || []);
+            if (files.length > 1) {
+                processMultipleFiles(files);
+            } else if (files[0]) {
+                processSingleFile(files[0], forcedType);
+            }
+            event.target.value = '';
+        }
+
+        function showStatusBanner(msg, isError = false) {
+            const banner = document.getElementById('statusBanner');
+            banner.className = `mt-3 px-4 py-3 rounded-xl text-xs font-medium flex items-start justify-between gap-3 ${
+                isError ? 'bg-rose-500/20 text-rose-100 border border-rose-400/50' : 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/50'
+            }`;
+            banner.innerHTML = `<div class="leading-relaxed">${msg}</div><button type="button" onclick="this.parentElement.classList.add('hidden')" class="underline ml-2 shrink-0 cursor-pointer">Fechar</button>`;
+            banner.classList.remove('hidden');
+        }
+
+        function detectWorkbookCategory(workbook, fileName) {
+            const sheetNames = workbook.SheetNames || [];
+            const normFile = normalizeText(fileName);
+            let indScore = 0, compScore = 0;
+
+            if (normFile.includes('individual')) indScore += 15;
+            if (normFile.includes('competencia') || normFile.includes('habilidade')) compScore += 15;
+
+            sheetNames.forEach(name => {
+                const ns = normalizeText(name);
+                if (ns.includes('resumo') || ns.includes('registro') || ns.includes('individual')) indScore += 10;
+                if (ns.includes('cruzamento') || ns.includes('competencia') || ns.includes('itens')) compScore += 10;
+
+                const rows = (workbook.Sheets[name] || []).slice(0, 25);
+                rows.forEach(row => {
+                    if (!Array.isArray(row)) return;
+                    const line = normalizeText(row.join(' | '));
+                    if (line.includes('matricula') || line.includes('tempo de realizacao') || line.includes('marcacao respondente')) indScore += 5;
+                    if (line.includes('subfuncao') || line.includes('padrao de desempenho') || line.includes('em branco') || (line.includes('dificuldade') && line.includes('gabarito'))) compScore += 5;
+                });
+            });
+
+            return indScore >= compScore ? 'individual' : 'competencia';
+        }
+
+        function readFileBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = () => reject(new Error(`Falha ao ler "${file.name}".`));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        async function processMultipleFiles(files) {
+            try {
+                if (appState.isDemo) clearDemoStateBeforeImport();
+                const messages = [];
+
+                for (const file of files) {
+                    const buf = await readFileBuffer(file);
+                    const wb = await readWorkbookUniversal(buf);
+                    const category = detectWorkbookCategory(wb, file.name);
+                    if (category === 'individual') {
+                        const res = parseIndividualWorkbook(wb, file.name);
+                        messages.push(`<strong>Individual:</strong> OK (${res.count} alunos — ${escapeHtml(file.name)})`);
+                    } else {
+                        const res = parseCompetenciaWorkbook(wb, file.name);
+                        messages.push(`<strong>Competência:</strong> OK (${res.count} itens / ${res.subCount} subfunções — ${escapeHtml(file.name)})`);
+                    }
+                }
+
+                renderAll();
+                showStatusBanner(`Importação concluída! Turma <strong>${escapeHtml(appState.meta.turma)}</strong> (${escapeHtml(appState.meta.curso)}) • ${messages.join(' • ')}`);
+            } catch (err) {
+                console.error(err);
+                showStatusBanner(`<strong>Erro ao importar planilhas:</strong> ${escapeHtml(err.message)}`, true);
+            }
+        }
+
+        async function processSingleFile(file, forcedType) {
+            try {
+                if (appState.isDemo) clearDemoStateBeforeImport();
+                const buf = await readFileBuffer(file);
+                const wb = await readWorkbookUniversal(buf);
+                const category = forcedType || detectWorkbookCategory(wb, file.name);
+
+                if (category === 'individual') {
+                    const res = parseIndividualWorkbook(wb, file.name);
+                    renderAll();
+                    showStatusBanner(`<strong>Planilha Individual: OK</strong> (<code>${escapeHtml(file.name)}</code>) — Turma <strong>${escapeHtml(appState.meta.turma)}</strong> com <strong>${res.count}</strong> respondentes.`);
+                } else {
+                    const res = parseCompetenciaWorkbook(wb, file.name);
+                    renderAll();
+                    showStatusBanner(`<strong>Planilha Competência: OK</strong> (<code>${escapeHtml(file.name)}</code>) — <strong>${res.count}</strong> questões e <strong>${res.subCount}</strong> subfunções carregadas.`);
+                }
+            } catch (err) {
+                console.error(err);
+                showStatusBanner(`<strong>Erro ao ler "${escapeHtml(file.name)}":</strong> ${escapeHtml(err.message)}`, true);
+            }
+        }
+
+        function findHeaderRow(rows, keywordGroups, minMatches = 2) {
+            let bestIdx = -1, bestScore = 0;
+            const limit = Math.min(rows.length, 40);
+            for (let i = 0; i < limit; i++) {
+                const row = rows[i];
+                if (!Array.isArray(row)) continue;
+                const cells = row.map(c => normalizeText(c)).filter(Boolean);
+                if (cells.length < 2) continue;
+
+                let score = 0;
+                const matched = new Set();
+                keywordGroups.forEach((grp, gIdx) => {
+                    const hit = cells.some(cell => grp.keywords.some(kw => cell === kw || cell.includes(kw)));
+                    if (hit) {
+                        matched.add(gIdx);
+                        score += grp.weight || 1;
+                    }
+                });
+                if (matched.size >= minMatches && score > bestScore) {
+                    bestScore = score;
+                    bestIdx = i;
+                }
+            }
+            return bestIdx;
+        }
+
+        function rankSheetsByKeywords(sheetNames, preferred, fallback = []) {
+            return [...sheetNames].sort((a, b) => {
+                const scoreFn = (s) => {
+                    const ns = normalizeText(s);
+                    let sc = 0;
+                    preferred.forEach((kw, idx) => { if (ns.includes(kw)) sc += (preferred.length - idx) * 10; });
+                    fallback.forEach(kw => { if (ns.includes(kw)) sc += 3; });
+                    return sc;
+                };
+                return scoreFn(b) - scoreFn(a);
+            });
+        }
+
+        function extractMetadataFromRows(rows) {
+            if (!Array.isArray(rows)) return;
+            rows.slice(0, 35).forEach(row => {
+                if (!Array.isArray(row)) return;
+                row.forEach((cell, idx) => {
+                    const rawVal = String(cell ?? '').trim();
+                    const normVal = normalizeText(rawVal);
+                    let nextVal = '';
+                    for (let k = idx + 1; k < Math.min(row.length, idx + 6); k++) {
+                        const cand = String(row[k] ?? '').trim();
+                        if (cand) { nextVal = cand; break; }
+                    }
+                    const assign = (field, val) => {
+                        const clean = String(val || '').replace(/^[:\-\s]+/, '').trim();
+                        if (clean && clean.length < 180) appState.meta[field] = clean;
+                    };
+                    if (/^(dr|escola|unidade)\s*:?$/.test(normVal) && nextVal) assign('escola', nextVal);
+                    if (/^curso\s*:?$/.test(normVal) && nextVal) assign('curso', nextVal);
+                    if (/^turma\s*:?$/.test(normVal) && nextVal) assign('turma', nextVal);
+                    if (/^turno\s*:?$/.test(normVal) && nextVal) assign('turno', nextVal);
+                    if (/^avaliacao\s*:?$/.test(normVal) && nextVal) assign('avaliacao', nextVal);
+                    if (/^periodo\s*:?$/.test(normVal) && nextVal) assign('periodo', nextVal);
+
+                    if (normVal.startsWith('escola:')) assign('escola', rawVal.split(':').slice(1).join(':'));
+                    if (normVal.startsWith('curso:')) assign('curso', rawVal.split(':').slice(1).join(':'));
+                    if (normVal.startsWith('turma:')) assign('turma', rawVal.split(':').slice(1).join(':'));
+                    if (normVal.startsWith('turno:')) assign('turno', rawVal.split(':').slice(1).join(':'));
+                    if (normVal.startsWith('avaliacao:')) assign('avaliacao', rawVal.split(':').slice(1).join(':'));
+                    if (normVal.startsWith('periodo:')) assign('periodo', rawVal.split(':').slice(1).join(':'));
+                });
+            });
+        }
+
+        // Parser Planilha 1: Desempenho Individual
+        function parseIndividualWorkbook(workbook, fileName) {
+            const sheetNames = workbook.SheetNames || [];
+            sheetNames.forEach(n => extractMetadataFromRows(workbook.Sheets[n] || []));
+
+            const resumoGroups = [
+                { keywords: ['aluno', 'estudante', 'nome'], weight: 2 },
+                { keywords: ['matricula', 'cpf', 'codigo'], weight: 1.5 },
+                { keywords: ['acerto', 'acertos', 'desempenho', 'pontuacao', 'nota'], weight: 2 },
+                { keywords: ['erro', 'erros', 'tempo de realizacao', 'tempo'], weight: 1.5 }
+            ];
+
+            let resumoRows = [], resumoHeaderIdx = -1;
+            for (const sName of rankSheetsByKeywords(sheetNames, ['resumo', 'individual', 'geral'], ['desempenho'])) {
+                const idx = findHeaderRow(workbook.Sheets[sName] || [], resumoGroups, 2);
+                if (idx !== -1) { resumoRows = workbook.Sheets[sName]; resumoHeaderIdx = idx; break; }
+            }
+
+            const registroGroups = [
+                { keywords: ['identificador', 'saep', 'item', 'questao'], weight: 2 },
+                { keywords: ['marcacao respondente', 'marcacao', 'resposta'], weight: 2 },
+                { keywords: ['gabarito', 'correta'], weight: 1.5 },
+                { keywords: ['aluno', 'estudante', 'matricula'], weight: 1.5 }
+            ];
+
+            let registroRows = [], registroHeaderIdx = -1;
+            for (const sName of rankSheetsByKeywords(sheetNames, ['registro', 'detalhe', 'respostas'], ['individual'])) {
+                const idx = findHeaderRow(workbook.Sheets[sName] || [], registroGroups, 3);
+                if (idx !== -1) { registroRows = workbook.Sheets[sName]; registroHeaderIdx = idx; break; }
+            }
+
+            if (resumoHeaderIdx === -1 && registroHeaderIdx === -1) {
+                throw new Error(`Cabeçalhos de estudantes não localizados nas abas (${sheetNames.join(', ')}).`);
+            }
+
+            const registrosPorAluno = {};
+            const itensMapFromRegistro = {};
+
+            if (registroHeaderIdx !== -1) {
+                const rNorm = registroRows[registroHeaderIdx].map(h => normalizeText(h));
+                const rCol = (patterns) => rNorm.findIndex(h => patterns.some(p => h === p || h.includes(p)));
+
+                const cAluno = rCol(['aluno', 'estudante', 'nome']);
+                const cMat = rCol(['matricula']);
+                const cId = rCol(['identificador', 'codigo', 'item']);
+                const cMarc = rCol(['marcacao respondente', 'marcacao', 'resposta']);
+                const cGab = rCol(['gabarito', 'correta']);
+                const cSub = rCol(['subfuncao', 'competencia']);
+                const cCon = rCol(['conhecimento', 'conteudo', 'objeto']);
+                const cDif = rCol(['dificuldade', 'nivel']);
+                const cTurma = rCol(['turma']);
+                const cCurso = rCol(['curso']);
+                const cTurno = rCol(['turno']);
+                const cEscola = rCol(['escola', 'unidade']);
+                const cAval = rCol(['avaliacao']);
+
+                for (let r = registroHeaderIdx + 1; r < registroRows.length; r++) {
+                    const row = registroRows[r];
+                    if (!Array.isArray(row)) continue;
+
+                    const alunoNome = cAluno !== -1 ? String(row[cAluno] ?? '').trim() : '';
+                    const alunoMat = cMat !== -1 ? String(row[cMat] ?? '').trim() : '';
+                    const itemId = cId !== -1 ? String(row[cId] ?? '').trim() : '';
+                    if ((!alunoNome && !alunoMat) || !itemId) continue;
+
+                    if (cTurma !== -1 && String(row[cTurma] ?? '').trim()) appState.meta.turma = String(row[cTurma]).trim();
+                    if (cCurso !== -1 && String(row[cCurso] ?? '').trim()) appState.meta.curso = String(row[cCurso]).trim();
+                    if (cTurno !== -1 && String(row[cTurno] ?? '').trim()) appState.meta.turno = String(row[cTurno]).trim();
+                    if (cEscola !== -1 && String(row[cEscola] ?? '').trim()) appState.meta.escola = String(row[cEscola]).trim();
+                    if (cAval !== -1 && String(row[cAval] ?? '').trim()) appState.meta.avaliacao = String(row[cAval]).trim();
+
+                    const marcRaw = cMarc !== -1 ? String(row[cMarc] ?? '').trim().toUpperCase() : '';
+                    const gabRaw = cGab !== -1 ? String(row[cGab] ?? '').trim().toUpperCase() : '';
+                    const isBranco = !marcRaw || marcRaw === '-' || marcRaw === '—' || marcRaw === 'BRANCO' || marcRaw === 'NR';
+                    const status = isBranco ? 'BRANCO' : (gabRaw && marcRaw === gabRaw ? 'ACERTO' : 'ERRO');
+
+                    if (!itensMapFromRegistro[itemId]) {
+                        itensMapFromRegistro[itemId] = {
+                            num: Object.keys(itensMapFromRegistro).length + 1,
+                            id: itemId,
+                            subfuncao: cSub !== -1 && String(row[cSub] ?? '').trim() ? String(row[cSub]).trim() : 'Competência Geral',
+                            conhecimento: cCon !== -1 && String(row[cCon] ?? '').trim() ? String(row[cCon]).trim() : 'Objeto de Conhecimento',
+                            dificuldade: cDif !== -1 && String(row[cDif] ?? '').trim() ? String(row[cDif]).trim() : 'Médio',
+                            gabarito: gabRaw || 'A',
+                            acertosCount: 0, totalCount: 0, brancoCount: 0,
+                            distCounts: { A: 0, B: 0, C: 0, D: 0, E: 0, Branco: 0 }
+                        };
+                    }
+                    const itMeta = itensMapFromRegistro[itemId];
+                    itMeta.totalCount++;
+                    if (status === 'ACERTO') itMeta.acertosCount++;
+                    if (isBranco) { itMeta.brancoCount++; itMeta.distCounts.Branco++; }
+                    else if (['A', 'B', 'C', 'D', 'E'].includes(marcRaw)) itMeta.distCounts[marcRaw]++;
+
+                    const alunoKey = normalizeText(alunoMat || alunoNome);
+                    if (!registrosPorAluno[alunoKey]) {
+                        registrosPorAluno[alunoKey] = { nome: alunoNome.toUpperCase(), matricula: alunoMat, respostas: [] };
+                    }
+                    registrosPorAluno[alunoKey].respostas.push({
+                        num: itMeta.num, itemId, marcada: isBranco ? '-' : marcRaw, status
+                    });
+                }
+
+                if (!appState.hasCompetenciaFile && Object.keys(itensMapFromRegistro).length > 0) {
+                    appState.itens = Object.values(itensMapFromRegistro).map(it => {
+                        const tot = it.totalCount || 1;
+                        const acPct = (it.acertosCount / tot) * 100;
+                        const brPct = (it.brancoCount / tot) * 100;
+                        return {
+                            num: it.num, id: it.id, subfuncao: it.subfuncao, conhecimento: it.conhecimento,
+                            dificuldade: it.dificuldade, gabarito: it.gabarito,
+                            acertosPct: acPct, errosPct: Math.max(0, 100 - acPct - brPct), brancoPct: brPct,
+                            dist: {
+                                A: (it.distCounts.A / tot) * 100, B: (it.distCounts.B / tot) * 100,
+                                C: (it.distCounts.C / tot) * 100, D: (it.distCounts.D / tot) * 100,
+                                E: (it.distCounts.E / tot) * 100, Branco: brPct
+                            }
+                        };
+                    });
+                    appState.meta.totalQuestoes = appState.itens.length;
+                }
+            }
+
+            const parsedAlunos = [];
+            const numItensCatalogados = Object.keys(itensMapFromRegistro).length;
+
+            if (resumoHeaderIdx !== -1) {
+                const normHeaders = resumoRows[resumoHeaderIdx].map(h => normalizeText(h));
+                const findCol = (patterns) => normHeaders.findIndex(h => patterns.some(p => h === p || h.includes(p)));
+
+                const colNome = findCol(['aluno', 'estudante', 'nome']);
+                const colMat = findCol(['matricula', 'cpf', 'codigo']);
+                const colAcertos = findCol(['total de acertos', 'acertos', 'acerto', 'pontuacao', 'pontos']);
+                const colErros = findCol(['total de erros', 'erros', 'erro']);
+                const colPctNota = findCol(['desempenho', 'aproveitamento', 'nota']);
+                const colTempo = findCol(['tempo de realizacao', 'tempo gasto', 'tempo', 'duracao']);
+                const colBranco = findCol(['em branco', 'branco', 'nao respondid']);
+
+                let detectedTotalItens = numItensCatalogados || (appState.hasCompetenciaFile ? appState.itens.length : 0);
+
+                for (let r = resumoHeaderIdx + 1; r < resumoRows.length; r++) {
+                    const row = resumoRows[r];
+                    if (!Array.isArray(row)) continue;
+
+                    const nome = colNome !== -1 ? String(row[colNome] ?? '').trim() : '';
+                    const matricula = colMat !== -1 ? String(row[colMat] ?? '').trim() : '';
+                    const normNome = normalizeText(nome || matricula);
+                    if (!normNome || /^(media|mediana|total|resumo|fonte|observacao|rodape|legenda|desvio)\b/.test(normNome)) continue;
+
+                    const acertosVal = colAcertos !== -1 ? parseFlexPct(row[colAcertos], false) : NaN;
+                    const errosVal = colErros !== -1 ? parseFlexPct(row[colErros], false) : NaN;
+                    const emBrancoVal = colBranco !== -1 ? Math.max(0, Math.round(parseFlexPct(row[colBranco], false))) : 0;
+
+                    if (Number.isFinite(acertosVal) && Number.isFinite(errosVal) && (acertosVal + errosVal) > 0) {
+                        const soma = Math.round(acertosVal + errosVal);
+                        if (soma > detectedTotalItens) detectedTotalItens = soma;
+                    }
+
+                    const regMatch = registrosPorAluno[normalizeText(matricula)] || registrosPorAluno[normalizeText(nome)];
+                    const respostas = regMatch ? regMatch.respostas : null;
+                    const calcBranco = respostas ? respostas.filter(x => x.status === 'BRANCO').length : emBrancoVal;
+
+                    parsedAlunos.push({
+                        nome: (nome || `ESTUDANTE ${matricula}`).toUpperCase(),
+                        matricula,
+                        acertos: Number.isFinite(acertosVal) ? Math.max(0, acertosVal) : 0,
+                        pctRaw: colPctNota !== -1 ? parseFlexPct(row[colPctNota], true) : NaN,
+                        total: 0,
+                        tempoStr: colTempo !== -1 ? row[colTempo] : "00:45:00",
+                        emBranco: colBranco !== -1 ? emBrancoVal : calcBranco,
+                        respostas
+                    });
+                }
+
+                const finalTotal = detectedTotalItens || appState.meta.totalQuestoes || 30;
+                appState.meta.totalQuestoes = finalTotal;
+                parsedAlunos.forEach(a => {
+                    a.total = finalTotal;
+                    if (a.acertos === 0 && Number.isFinite(a.pctRaw) && a.pctRaw > 0) {
+                        a.acertos = Math.round((a.pctRaw / 100) * finalTotal);
+                    }
+                });
+            } else {
+                const finalTotal = numItensCatalogados || 30;
+                appState.meta.totalQuestoes = finalTotal;
+                Object.values(registrosPorAluno).forEach(reg => {
+                    parsedAlunos.push({
+                        nome: reg.nome, matricula: reg.matricula,
+                        acertos: reg.respostas.filter(x => x.status === 'ACERTO').length,
+                        total: finalTotal, tempoStr: "00:00:00",
+                        emBranco: reg.respostas.filter(x => x.status === 'BRANCO').length,
+                        respostas: reg.respostas
+                    });
+                });
+            }
+
+            if (!parsedAlunos.length) throw new Error(`Nenhum estudante válido encontrado em "${fileName}".`);
+
+            appState.alunos = parsedAlunos;
+            appState.hasIndividualFile = true;
+            appState.isDemo = false;
+            updateDemoBadgeUI();
+
+            document.getElementById('nameInd').textContent = `${fileName} (${parsedAlunos.length} alunos)`;
+            document.getElementById('badgeInd').textContent = "Individual: OK";
+            document.getElementById('badgeInd').className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300";
+
+            return { count: parsedAlunos.length };
+        }
+
+        // Parser Planilha 2: Desempenho por Competência
+        function parseCompetenciaWorkbook(workbook, fileName) {
+            const sheetNames = workbook.SheetNames || [];
+            sheetNames.forEach(n => extractMetadataFromRows(workbook.Sheets[n] || []));
+
+            const cruzGroups = [
+                { keywords: ['subfuncao', 'sub-funcao', 'competencia'], weight: 2.5 },
+                { keywords: ['aproveitamento', 'desempenho', 'acerto', 'media'], weight: 2 },
+                { keywords: ['conhecimento', 'capacidade', 'padrao de desempenho'], weight: 1.5 }
+            ];
+
+            let cruzRows = [], cruzIdx = -1;
+            for (const sName of rankSheetsByKeywords(sheetNames, ['cruzamento', 'competencia', 'subfuncao'], ['desempenho'])) {
+                const idx = findHeaderRow(workbook.Sheets[sName] || [], cruzGroups, 2);
+                if (idx !== -1) { cruzRows = workbook.Sheets[sName]; cruzIdx = idx; break; }
+            }
+
+            const parsedSubfuncoesCruzamento = [];
+            if (cruzIdx !== -1) {
+                const cNorm = cruzRows[cruzIdx].map(h => normalizeText(h));
+                const cCol = (patterns) => cNorm.findIndex(h => patterns.some(p => h === p || h.includes(p)));
+                const colSub = cCol(['subfuncao', 'sub-funcao', 'competencia']);
+                const colAprov = cCol(['aproveitamento', 'desempenho', 'acerto', 'media']);
+                const colQtd = cCol(['itens', 'questoes', 'qtd']);
+
+                if (colSub !== -1 && colAprov !== -1) {
+                    const seen = new Set();
+                    for (let r = cruzIdx + 1; r < cruzRows.length; r++) {
+                        const row = cruzRows[r];
+                        if (!Array.isArray(row)) continue;
+                        const subName = String(row[colSub] ?? '').trim();
+                        const normSub = normalizeText(subName);
+                        if (!subName || /^(total|media|mediana|fonte|observacao|rodape|legenda)\b/.test(normSub)) continue;
+                        if (!seen.has(normSub)) {
+                            seen.add(normSub);
+                            parsedSubfuncoesCruzamento.push({
+                                nome: subName,
+                                media: Math.max(0, Math.min(100, parseFlexPct(row[colAprov], true))),
+                                qtdItens: colQtd !== -1 ? Math.round(parseFlexPct(row[colQtd], false)) : 0
+                            });
+                        }
+                    }
+                }
+            }
+
+            const itemGroups = [
+                { keywords: ['identificador', 'codigo', 'saep', 'item', 'questao', 'nº', 'numero'], weight: 2 },
+                { keywords: ['dificuldade', 'nivel', 'gabarito', 'correta'], weight: 2 },
+                { keywords: ['acerto', 'acertos', 'erro', 'erros', 'aproveitamento', 'em branco'], weight: 2 },
+                { keywords: ['conhecimento', 'subfuncao', 'conteudo', 'habilidade', 'capacidade'], weight: 1.5 }
+            ];
+
+            let rows = [], headerIdx = -1;
+            for (const sName of rankSheetsByKeywords(sheetNames, ['itens', 'questoes', 'questao', 'detalhes'], ['competencia'])) {
+                const idx = findHeaderRow(workbook.Sheets[sName] || [], itemGroups, 2);
+                if (idx !== -1) { rows = workbook.Sheets[sName]; headerIdx = idx; break; }
+            }
+
+            if (headerIdx === -1 && parsedSubfuncoesCruzamento.length === 0) {
+                throw new Error(`Colunas de competências ou itens não encontradas nas abas (${sheetNames.join(', ')}).`);
+            }
+
+            const parsedItens = [];
+            if (headerIdx !== -1) {
+                const normHeaders = rows[headerIdx].map(h => normalizeText(h));
+                const findCol = (patterns) => normHeaders.findIndex(h => patterns.some(p => h === p || h.includes(p)));
+
+                const colId = findCol(['identificador', 'cod item', 'codigo', 'id saep', 'saep', 'item', 'questao', 'nº']);
+                const colSub = findCol(['subfuncao', 'sub-funcao', 'competencia', 'eixo']);
+                const colCon = findCol(['objeto de conhecimento', 'conhecimento', 'capacidade', 'conteudo', 'habilidade', 'tema']);
+                const colDif = findCol(['dificuldade', 'nivel de dificuldade', 'nivel']);
+                const colGab = findCol(['gabarito', 'resposta correta', 'correta']);
+                const colAcerto = findCol(['% de acertos', '% acertos', 'aproveitamento', 'acertos (%)', 'acerto (%)', 'acertos', 'acerto', 'desempenho', 'media']);
+                const colErro = findCol(['% de erros', '% erros', 'erros (%)', 'erro (%)', 'erros', 'erro']);
+                const colBranco = findCol(['% em branco', '% branco', 'branco (%)', 'em branco', 'branco']);
+
+                const findAltCol = (l) => normHeaders.findIndex(h => h === l || h === `alt ${l}` || h === `alternativa ${l}` || h.startsWith(`${l} (`) || h.startsWith(`${l}(`));
+                const colA = findAltCol('a'), colB = findAltCol('b'), colC = findAltCol('c'), colD = findAltCol('d'), colE = findAltCol('e');
+
+                for (let r = headerIdx + 1; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (!Array.isArray(row)) continue;
+
+                    const rawId = colId !== -1 ? String(row[colId] ?? '').trim() : '';
+                    const rawSub = colSub !== -1 ? String(row[colSub] ?? '').trim() : '';
+                    const rawCon = colCon !== -1 ? String(row[colCon] ?? '').trim() : '';
+                    const check = normalizeText(`${rawId} ${rawSub} ${rawCon}`);
+                    if (!check || /^(total|media|mediana|fonte|observacao|rodape|legenda)\b/.test(check)) continue;
+
+                    const temAcerto = colAcerto !== -1 && String(row[colAcerto] ?? '').trim() !== '';
+                    if (!rawId && !rawCon && !rawSub && !temAcerto) continue;
+
+                    const acertosPct = colAcerto !== -1 ? Math.max(0, Math.min(100, parseFlexPct(row[colAcerto], true))) : 0;
+                    const errosPct = colErro !== -1 ? Math.max(0, Math.min(100, parseFlexPct(row[colErro], true))) : Math.max(0, 100 - acertosPct);
+                    const brancoPct = colBranco !== -1 ? Math.max(0, Math.min(100, parseFlexPct(row[colBranco], true))) : 0;
+
+                    const gabRaw = colGab !== -1 ? String(row[colGab] ?? '').trim().toUpperCase() : '';
+                    const gabClean = ['A', 'B', 'C', 'D', 'E'].includes(gabRaw.charAt(0)) ? gabRaw.charAt(0) : 'A';
+                    const existingItem = appState.itens.find(it => it.id === rawId);
+
+                    parsedItens.push({
+                        num: parsedItens.length + 1,
+                        id: rawId || `ITEM_${parsedItens.length + 1}`,
+                        subfuncao: rawSub || (existingItem ? existingItem.subfuncao : "Competência Geral"),
+                        conhecimento: rawCon || (existingItem ? existingItem.conhecimento : (rawSub || "Objeto de Conhecimento")),
+                        dificuldade: (colDif !== -1 && String(row[colDif] ?? '').trim()) ? String(row[colDif]).trim() : (existingItem ? existingItem.dificuldade : "Médio"),
+                        gabarito: gabClean,
+                        acertosPct, errosPct, brancoPct,
+                        dist: {
+                            A: colA !== -1 ? parseFlexPct(row[colA], true) : 0,
+                            B: colB !== -1 ? parseFlexPct(row[colB], true) : 0,
+                            C: colC !== -1 ? parseFlexPct(row[colC], true) : 0,
+                            D: colD !== -1 ? parseFlexPct(row[colD], true) : 0,
+                            E: colE !== -1 ? parseFlexPct(row[colE], true) : 0,
+                            Branco: brancoPct
+                        }
+                    });
+                }
+            }
+
+            if (parsedItens.length > 0) {
+                appState.itens = parsedItens;
+                appState.meta.totalQuestoes = parsedItens.length;
+                appState.alunos.forEach(a => { a.total = parsedItens.length; });
+            } else if (parsedSubfuncoesCruzamento.length > 0) {
+                appState.itens = parsedSubfuncoesCruzamento.map((sc, idx) => ({
+                    num: idx + 1, id: `COMP_${idx + 1}`, subfuncao: sc.nome, conhecimento: sc.nome,
+                    dificuldade: "Médio", gabarito: "-", acertosPct: sc.media, errosPct: 100 - sc.media, brancoPct: 0,
+                    dist: { A: 0, B: 0, C: 0, D: 0, E: 0, Branco: 0 }
+                }));
+            }
+
+            appState.subfuncoesCruzamento = parsedSubfuncoesCruzamento;
+            appState.hasCompetenciaFile = true;
+            appState.isDemo = false;
+            updateDemoBadgeUI();
+
+            const totalItensLabel = appState.itens.length;
+            const totalSubLabel = parsedSubfuncoesCruzamento.length || new Set(appState.itens.map(i => i.subfuncao)).size;
+
+            document.getElementById('nameComp').textContent = `${fileName} (${totalItensLabel} itens / ${totalSubLabel} subfunções)`;
+            document.getElementById('badgeComp').textContent = "Competência: OK";
+            document.getElementById('badgeComp').className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300";
+
+            return { count: totalItensLabel, subCount: totalSubLabel };
+        }
+
+        // =========================================================================
+        // 8. CONTROLES DE NAVEGAÇÃO, LIMPEZA E INICIALIZAÇÃO
+        // =========================================================================
+        function clearDemoStateBeforeImport() {
+            appState.isDemo = false;
+            appState.hasIndividualFile = false;
+            appState.hasCompetenciaFile = false;
+            appState.meta = {
+                escola: "Unidade SENAI", curso: "Curso Técnico", turma: "Nova Turma",
+                turno: "-", avaliacao: "Avaliação Diagnóstica SAEP", periodo: "-", totalQuestoes: 0
+            };
+            appState.itens = [];
+            appState.subfuncoesCruzamento = [];
+            appState.alunos = [];
+            updateDemoBadgeUI();
+        }
+
+        function updateDemoBadgeUI() {
+            const badge = document.getElementById('demoModeBadge');
+            if (!badge) return;
+            if (appState.isDemo) {
+                badge.textContent = "Modo Exemplo (Turma 998551) — Selecione as planilhas da sua turma abaixo";
+                badge.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30";
+            } else {
+                badge.textContent = `Turma Carregada: ${appState.meta.turma} (${appState.meta.curso})`;
+                badge.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30";
+            }
+        }
+
+        function openAndResetForNewClass() {
+            const panel = document.getElementById('uploadPanel');
+            panel.classList.remove('hidden');
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            resetToCleanState();
+        }
+
+        function resetToCleanState() {
+            clearDemoStateBeforeImport();
+            document.getElementById('nameInd').textContent = "Nenhuma planilha individual carregada";
+            document.getElementById('badgeInd').textContent = "Aguardando";
+            document.getElementById('badgeInd').className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300";
+
+            document.getElementById('nameComp').textContent = "Nenhuma planilha de competência carregada";
+            document.getElementById('badgeComp').textContent = "Aguardando";
+            document.getElementById('badgeComp').className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300";
+
+            renderAll();
+            showStatusBanner("Dados anteriores limpos! Clique em <strong>Escolher Planilhas</strong> acima para carregar a nova turma.");
+        }
+
+        function toggleUploadPanel() {
+            document.getElementById('uploadPanel').classList.toggle('hidden');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`content-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-senai-600', 'text-white', 'shadow-sm');
+                btn.classList.add('text-slate-600', 'hover:bg-slate-100');
+            });
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.add('bg-senai-600', 'text-white', 'shadow-sm');
+            activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        }
+
+        function loadDemoData() {
+            appState.isDemo = true;
+            appState.hasIndividualFile = false;
+            appState.hasCompetenciaFile = false;
+            appState.meta = JSON.parse(JSON.stringify(DEMO_DATA.meta));
+            appState.itens = JSON.parse(JSON.stringify(DEMO_DATA.itens));
+            appState.subfuncoesCruzamento = [];
+            appState.alunos = JSON.parse(JSON.stringify(DEMO_DATA.alunos));
+            hydrateDemoStudentAnswers(appState);
+            updateDemoBadgeUI();
+
+            document.getElementById('nameInd').textContent = "Desempenho-individual.xls (Turma 998551)";
+            document.getElementById('badgeInd').textContent = "Exemplo Ativo";
+            document.getElementById('badgeInd').className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300";
+
+            document.getElementById('nameComp').textContent = "Desempenho-por-competencia.xls (30 Questões)";
+            document.getElementById('badgeComp').textContent = "Exemplo Ativo";
+            document.getElementById('badgeComp').className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300";
+
+            renderAll();
+            showStatusBanner("Dados de demonstração (Turma 998551 - Técnico em Química) restaurados.");
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setupDragAndDrop();
+            hydrateDemoStudentAnswers(appState);
+            updateDemoBadgeUI();
+            renderAll();
+        });
+    </script>
+</body>
+</html>
